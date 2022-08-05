@@ -42,9 +42,13 @@ create_xwalk = function(source, target, source_id = 'GEOID', target_id = 'GEOID'
   
   if(method == 'fractional overlap'){
     xwalk = xwalk_folap(source = source[, source_id], target = target[, target_id], ...)
+    names(xwalk) = c('target_id', 'source_id', 'fraction')
   }else{
     xwalk = xwalk_polap(source, target, source_id, target_id, threshold = threshold, point_pop,)
   }
+  
+  
+  return(xwalk)
   
 }
 
