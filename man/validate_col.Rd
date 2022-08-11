@@ -6,6 +6,13 @@
 \usage{
 validate_col(d, id, type = "source")
 }
+\arguments{
+\item{d}{data.frame}
+
+\item{id}{id column}
+
+\item{type}{character. Name/descriptor of x}
+}
 \description{
 A function to validate a column exists in a dataset and is unique
 }

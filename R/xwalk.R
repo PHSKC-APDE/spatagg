@@ -9,7 +9,7 @@
 #' @param min_overlap numeric between 0 and 1. Percent of the bounding boxes of source and target that need to overlap. Otherwise, throw an error
 #' @param ... additional arguments passed to underlying methods. xwalk_polap or xwalk_folap
 #' @export
-#' 
+#' @importFrom sf st_geometry_type st_sf st_as_sfc st_bbox
 #' 
 create_xwalk = function(source, target, source_id = 'GEOID', target_id = 'GEOID',
                         method = 'fractional overlap', 
@@ -22,6 +22,10 @@ create_xwalk = function(source, target, source_id = 'GEOID', target_id = 'GEOID'
   
   stopifnot(min_overlap>=0 & min_overlap <= 1)
   
+  # make sure the inputs are sensible geographies
+  check_internal_consistency(source)
+  check_internal_consistency(target)
+  
   # confirm compatible CRSs
   if(st_crs(target) != st_crs(source)){
     stop('`target` and `source` must have the same CRS')
@@ -32,17 +36,20 @@ create_xwalk = function(source, target, source_id = 'GEOID', target_id = 'GEOID'
   validate_col(target, target_id, 'target')
   
   # check to make sure the geographies overlap with each other
-  sbb = st_sf(data.frame(id = 'source', geom = st_as_sfc(st_bbox(source))))
-  tbb = st_sf(data.frame(id = 'target', geom = st_as_sfc(st_bbox(target))))
+  sbb = sf::st_sf(data.frame(id = 'source', geom = sf::st_as_sfc(sf::st_bbox(source))))
+  tbb = sf::st_sf(data.frame(id = 'target', geom = sf::st_as_sfc(sf::st_bbox(target))))
   olap = xwalk_folap(sbb, tbb)
   
-  if(olap$s2t_fraction<min_overlap){
+  if(nrow(olap) ==0 || olap$s2t_fraction<min_overlap){
     stop(paste0('Spatial overlap between source and target is less than: ', min_overlap))
   }
   
   if(method == 'fractional overlap'){
     xwalk = xwalk_folap(source = source[, source_id], target = target[, target_id], source_id = source_id, target_id = target_id, ...)
   }else{
+    
+    # make sure point pop is points
+    stopifnot(all(sf::st_geometry_type(point_pop) == 'POINT'))
     xwalk = xwalk_polap(source, target, source_id, target_id, point_pop = point_pop, ...)
   }
   rownames(xwalk) <- NULL
@@ -90,12 +97,13 @@ xwalk_folap = function(source, target, source_id = 'id', target_id = 'id', thres
       
     }
   )
+  
   isect$end = as.numeric(sf::st_area(isect))
   
   sf::st_geometry(isect) = NULL
   isect$fraction = isect$end/isect$start
   data.table::setDT(isect)
-  isect = isect[fraction>threshold]
+  isect = isect[fraction>=threshold]
   isect[, coverage_amount := sum(end), by = target_id]
   
   isect = isect[, .(source_id, target_id, s2t_fraction = fraction, isect_amount = end, tcoverage_amount = coverage_amount, target_amount)]
@@ -139,15 +147,15 @@ xwalk_polap = function(source, target, source_id = 'id', target_id = 'id', thres
   sbb = st_sf(data.frame(id = 'source', geom = sf::st_as_sfc(sf::st_bbox(source))))
   tbb = st_sf(data.frame(id = 'target', geom = sf::st_as_sfc(sf::st_bbox(target))))
   
-  s_to_p = xwalk_folap(pbb, sbb)
-  if(s_to_p$s2t_fraction < pp_min_overlap){
-    stop(paste('point_pop bbox only overlaps with', round(s_to_p$s2t_fraction,2),
-               'of source-- which is less than minimum requirement specified by pp_min_overlap:', pp_min_overlap))
+  s_to_p = xwalk_folap(sbb, pbb)
+  if(nrow(s_to_p) ==0 || s_to_p$s2t_fraction < pp_min_overlap){
+    stop(paste('point_pop bbox only overlaps with', if(nrow(s_to_p) == 0) 0 else round(s_to_p$s2t_fraction*100,2),
+               '% of source-- which is less than minimum requirement specified by pp_min_overlap:', pp_min_overlap*100,'%'))
   }
-  t_to_p = xwalk_folap(pbb, tbb)
-  if(t_to_p$s2t_fraction < pp_min_overlap){
-    stop(paste('point_pop bbox only overlaps with', round(t_to_p$s2t_fraction,2),
-               'of target-- which is less than minimum requirement specified by pp_min_overlap:', pp_min_overlap))
+  t_to_p = xwalk_folap(tbb, pbb)
+  if(nrow(t_to_p) == 0 || t_to_p$s2t_fraction < pp_min_overlap){
+    stop(paste('point_pop bbox only overlaps with', if(nrow(t_to_p) == 0) 0 else round(t_to_p$s2t_fraction*100,2),
+               '% of target-- which is less than minimum requirement specified by pp_min_overlap:', pp_min_overlap*100,'%'))
   }
   
   # compute the amount of target population that is shared by source
@@ -171,7 +179,7 @@ xwalk_polap = function(source, target, source_id = 'id', target_id = 'id', thres
   # This needs to be made more robust to duplication from the left-join st_joins
   point_pop[, s2t_fraction := ipop/sum(pop/Npp), source_id]
   point_pop[, target_amount := sum(pop), target_id]
-  point_pop = point_pop[s2t_fraction>threshold]
+  point_pop = point_pop[s2t_fraction>=threshold]
   point_pop[, tcoverage_amount := sum(ipop), target_id]
   point_pop = point_pop[, .(source_id, target_id, s2t_fraction, isect_amount = ipop, tcoverage_amount, target_amount)]
   data.table::setDF(point_pop)

@@ -7,8 +7,8 @@
 xwalk_polap(
   source,
   target,
-  source_id = "GEOID",
-  target_id = "GEOID",
+  source_id = "id",
+  target_id = "id",
   threshold = 0,
   point_pop,
   pp_min_overlap = 0.75,
@@ -28,7 +28,7 @@ xwalk_polap(
 
 \item{point_pop}{sf data.frame with a "pop" column representing the number of people living at/around that point}
 
-\item{min_overlap}{numeric between 0 and 1. Percent of the bounding boxes of source and target that need to overlap with the bbox from point_pp. Otherwise, throw an error}
+\item{pp_min_overlap}{numeric between 0 and 1. Percent of the bounding boxes of source and target that need to overlap with the bbox from point_pp. Otherwise, throw an error}
 }
 \value{
 data.frame with columns from target, source, and a \code{fraction}
