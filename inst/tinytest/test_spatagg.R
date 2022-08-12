@@ -146,7 +146,40 @@ tinytest::expect_equal(t5[target_id == 23 , isect_amount], t5.2[,pop])
 # confirm tcoverage_amount
 tinytest::expect_equal(t5[target_id == 23, unique(tcoverage_amount)], t5.2[, sum(pop)])
 
+# confirm s2t_fraction
+t5.3 = st_intersection(pop_pts, source_poly[t5[target_id == 23, source_id],])
+setDT(t5.3)
+t5.3 = t5.3[, .(sp_pop = sum(pop)), by = id.1]
+t5.3 = merge(t5.3, t5.2, all.x = T, by = 'id.1')
+tinytest::expect_equal(t5[target_id == 23,s2t_fraction], t5.3[, pop/sp_pop])
 
+# test out the actual crosswalk function
+# full coverage
+src = data.table(id = 1:3, est_count = 10, est_N = c(20,30,40))
+src[, est_mean := est_count/est_N]
+whole_cover = data.table(source_id = 1:3, target_id = 1, s2t_fraction = 1, isect_amount = c(20,30,40), tcoverage_amount = 90, target_amount = 90)
+t6.1 = crosswalk(src, 'id', est = 'est_count', est_type = 'count', xwalk_df = whole_cover)
+t6.2 = crosswalk(src, 'id', est = 'est_mean', est_type = 'mean', xwalk_df = whole_cover)
+tinytest::expect_equal(data.frame(target_id = 1, est = t6.1$est/whole_cover$target_amount[1]),t6.2)
+tinytest::expect_equal(t6.1$est, 30)
+
+# full coverage from partial overlap
+partial_overlap = data.table(source_id = 1:3, target_id = 1, 
+                           s2t_fraction = .75, isect_amount = c(20,30,40)*.75, 
+                           tcoverage_amount = 90*.75, target_amount = 90*.75)
+t7.1 = crosswalk(src, 'id', est = 'est_count', est_type = 'count', xwalk_df = partial_overlap)
+t7.2 = crosswalk(src, 'id', est = 'est_mean', est_type = 'mean', xwalk_df = partial_overlap)
+tinytest::expect_equal(data.frame(target_id = 1, est = t7.1$est/partial_overlap$target_amount[1]),t7.2)
+tinytest::expect_equal(t7.1$est, 30 * .75)
+
+# partial cover
+partial_cover = data.table(source_id = 1:3, target_id = 1, 
+                             s2t_fraction = 1, isect_amount = c(20,30,40), 
+                             tcoverage_amount = 90, target_amount = 100) #when only part of target is covered
+t8.1 = crosswalk(src, 'id', est = 'est_count', est_type = 'count', xwalk_df = partial_cover)
+t8.2 = crosswalk(src, 'id', est = 'est_mean', est_type = 'mean', xwalk_df = partial_cover)
+tinytest::expect_equal(t8.1$est, 30 * 100/90)
+tinytest::expect_equal(t8.1$est, sum(10/c(20,30,40) * c(20,30,40)/100 * 100/90))
 
 
 

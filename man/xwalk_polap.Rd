@@ -9,7 +9,6 @@ xwalk_polap(
   target,
   source_id = "id",
   target_id = "id",
-  threshold = 0,
   point_pop,
   pp_min_overlap = 0.75,
   ...
@@ -24,8 +23,6 @@ xwalk_polap(
 
 \item{target_id}{character. Column that has the unique ids in target}
 
-\item{threshold}{proportion between 0 and 1. The minimum amount of overlap to consider as legit}
-
 \item{point_pop}{sf data.frame with a "pop" column representing the number of people living at/around that point}
 
 \item{pp_min_overlap}{numeric between 0 and 1. Percent of the bounding boxes of source and target that need to overlap with the bbox from point_pp. Otherwise, throw an error}
@@ -34,8 +31,7 @@ xwalk_polap(
 data.frame with columns from target, source, and a \code{fraction}
 denoting the fraction of the source population that lives in source.
 Depending on how the two geography sets overlap, it may be that source doesn't
-fully cover target (e.g. sum(fraction) != 1)-- especially in combination with
-the threshold argument.
+fully cover target
 }
 \description{
 Create an xwalk matrix based on population overlap

@@ -4,14 +4,7 @@
 \alias{xwalk_folap}
 \title{Create an xwalk matrix based on fractional overlap}
 \usage{
-xwalk_folap(
-  source,
-  target,
-  source_id = "id",
-  target_id = "id",
-  threshold = 0,
-  ...
-)
+xwalk_folap(source, target, source_id = "id", target_id = "id", ...)
 }
 \arguments{
 \item{source}{sf data.frame. Sf object containing the source geographies}
@@ -22,16 +15,13 @@ xwalk_folap(
 
 \item{target_id}{character. Column that has the unique ids in target}
 
-\item{threshold}{proportion between 0 and 1. THe minimum amount of overlap to consider as legit}
-
 \item{...}{options passed to \code{sf::st_intersection}}
 }
 \value{
 data.frame with columns from target, source, and a \code{fraction}
 denoting the fraction of source that intersects with target spatially.
 Depending on how the two geography sets overlap, it may be that source doesn't
-fully cover target -- especially in combination with
-the threshold argument.
+fully cover target
 }
 \description{
 Create an xwalk matrix based on fractional overlap
