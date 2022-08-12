@@ -1,6 +1,7 @@
 # Set up data to test with
 library('sf')
-
+library('data.table')
+set.seed(1)
 #create a test grid of bottom left points
 grid_size = 10
 grid = expand.grid(x = seq_len(grid_size)-1, y = seq_len(grid_size)-1)
@@ -83,7 +84,7 @@ if(requireNamespace('ggplot2')){
 tinytest::expect_equal(t3s$s2t_fraction, c(.25,.5,.25,.5,1,.5,.25,.5,.25))
  
 # pop overlap off center
-if(requireNamespace(ggplot2)){
+if(requireNamespace('ggplot2')){
   g = ggplot() + geom_sf(data = source_poly, fill = NA) + 
     geom_sf(data = target_poly, fill = NA, color = 'red') +
     geom_sf(data = even_pp)
@@ -121,18 +122,29 @@ iolap = data.frame(id = 1:5)
 iolap$geom = c(p1, p2, p3, p4, p5)
 iolap = sf::st_sf(iolap, sf_column_name = 'geom')
 tinytest::expect_error(check_internal_consistency(iolap))
+tinytest::expect_error(create_xwalk(iolap, overlap_poly[1,], 'id', 'id', method = 'point pop', point_pop = even_pp), 'overlapping bits')
 
+# test a random distribution of points
+pop_pts = st_sample(rbind(target_poly, source_poly), 200)
+pop_pts = st_sf(data.frame(id = 1:200, pop = runif(200,0,10), geom = pop_pts))
+t5 = create_xwalk(source_poly, target_poly, 'id', 'id', method = 'point pop', point_pop = pop_pts)
+setDT(t5)
 
+# target amount is correct
+# use tid 23 for kicks
+t5.1 = st_intersection(pop_pts, target_poly[23,])
+tinytest::expect_true(all(sum(t5.1$pop) == t5[target_id==23, target_amount]))
 
+# for a given source that intersects with target, confirm the isect amount
+t5.2 = st_intersection(target_poly[23,], source_poly[t5[target_id == 23, source_id],])
+t5.2 = st_intersection(pop_pts, t5.2)
+setDT(t5.2)
+t5.2 = t5.2[, .(pop = sum(pop)), keyby = id.1]
+setorder(t5, source_id)
+tinytest::expect_equal(t5[target_id == 23 , isect_amount], t5.2[,pop])
 
-
-
-
-
-
-
-
-
+# confirm tcoverage_amount
+tinytest::expect_equal(t5[target_id == 23, unique(tcoverage_amount)], t5.2[, sum(pop)])
 
 
 

@@ -62,7 +62,6 @@ create_xwalk = function(source, target, source_id = 'GEOID', target_id = 'GEOID'
 #' 
 #' @param source sf data.frame. Sf object containing the source geographies
 #' @param target sf data.frame. sf object containng the target geographies
-#' @param threshold proportion between 0 and 1. THe minimum amount of overlap to consider as legit
 #' @param source_id character. Column that has the unique ids in source
 #' @param target_id character. Column that has the unique ids in target
 #' @param ... options passed to \code{sf::st_intersection}
@@ -72,14 +71,12 @@ create_xwalk = function(source, target, source_id = 'GEOID', target_id = 'GEOID'
 #' @return data.frame with columns from target, source, and a `fraction`
 #' denoting the fraction of source that intersects with target spatially.
 #' Depending on how the two geography sets overlap, it may be that source doesn't
-#' fully cover target -- especially in combination with
-#' the threshold argument.
+#' fully cover target 
 #' 
 #' 
 #' 
-xwalk_folap = function(source, target, source_id = 'id', target_id = 'id', threshold = 0, ...){
+xwalk_folap = function(source, target, source_id = 'id', target_id = 'id', ...){
   
-  stopifnot('Threshold is out of [0 - 1] bounds' = threshold >=0 & threshold <= 1)
   # confirm source_id and target_id are unique identifiers
   validate_col(source, source_id, 'source')
   validate_col(target, target_id, 'target')
@@ -103,10 +100,10 @@ xwalk_folap = function(source, target, source_id = 'id', target_id = 'id', thres
   sf::st_geometry(isect) = NULL
   isect$fraction = isect$end/isect$start
   data.table::setDT(isect)
-  isect = isect[fraction>=threshold]
   isect[, coverage_amount := sum(end), by = target_id]
   
-  isect = isect[, .(source_id, target_id, s2t_fraction = fraction, isect_amount = end, tcoverage_amount = coverage_amount, target_amount)]
+  # removing 0 fraction overlaps-- which should just be shared edges.
+  isect = isect[fraction>0, .(source_id, target_id, s2t_fraction = fraction, isect_amount = end, tcoverage_amount = coverage_amount, target_amount)]
   data.table::setDF(isect)
   return(isect)
   
@@ -118,7 +115,6 @@ xwalk_folap = function(source, target, source_id = 'id', target_id = 'id', thres
 #' @param target sf data.frame. sf object containng the target geographies
 #' @param source_id character. Column that has the unique ids in source
 #' @param target_id character. Column that has the unique ids in target
-#' @param threshold proportion between 0 and 1. The minimum amount of overlap to consider as legit
 #' @param point_pop sf data.frame with a "pop" column representing the number of people living at/around that point
 #' @param pp_min_overlap numeric between 0 and 1. Percent of the bounding boxes of source and target that need to overlap with the bbox from point_pp. Otherwise, throw an error
 #' @importFrom sf st_join st_crs st_bbox st_as_sfc
@@ -126,12 +122,10 @@ xwalk_folap = function(source, target, source_id = 'id', target_id = 'id', thres
 #' @return data.frame with columns from target, source, and a `fraction`
 #' denoting the fraction of the source population that lives in source.
 #' Depending on how the two geography sets overlap, it may be that source doesn't
-#' fully cover target (e.g. sum(fraction) != 1)-- especially in combination with
-#' the threshold argument.
+#' fully cover target
 #' 
-xwalk_polap = function(source, target, source_id = 'id', target_id = 'id', threshold = 0, point_pop, pp_min_overlap = .75, ...){
+xwalk_polap = function(source, target, source_id = 'id', target_id = 'id', point_pop, pp_min_overlap = .75, ...){
   
-  stopifnot('Threshold is out of [0 - 1] bounds' = threshold >=0 & threshold <= 1)
   stopifnot(pp_min_overlap>=0 & pp_min_overlap <= 1)
   stopifnot('`point_pop` does not have the same CRS as source' = sf::st_crs(point_pop) == st_crs(source))
   stopifnot('`point_pop` does not have the same CRS as target' = sf::st_crs(point_pop) == st_crs(target))
@@ -179,9 +173,14 @@ xwalk_polap = function(source, target, source_id = 'id', target_id = 'id', thres
   # This needs to be made more robust to duplication from the left-join st_joins
   point_pop[, s2t_fraction := ipop/sum(pop/Npp), source_id]
   point_pop[, target_amount := sum(pop), target_id]
-  point_pop = point_pop[s2t_fraction>=threshold]
-  point_pop[, tcoverage_amount := sum(ipop), target_id]
-  point_pop = point_pop[, .(source_id, target_id, s2t_fraction, isect_amount = ipop, tcoverage_amount, target_amount)]
+  point_pop[!is.na(source_id), tcoverage_amount := sum(ipop/Npp), target_id] # excluding instances where source id doesn't exist
+  point_pop = point_pop[!is.na(source_id) & !is.na(target_id), # where a point exists in no, or just one of source/target 
+                        .(source_id, target_id, s2t_fraction, isect_amount = ipop, tcoverage_amount, target_amount)]
+  # from a row per point to a row per pairing
+  point_pop = unique(point_pop)
+  
+  stopifnot(all(point_pop[, .N, .(source_id, target_id)][, N == 1]))
+  
   data.table::setDF(point_pop)
   
   
