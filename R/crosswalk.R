@@ -32,6 +32,9 @@ crosswalk = function(source, source_id, est, est_type = c('count'), se = NULL, b
   source = source[, .SD, .SDcols = c(source_id, by, est, se)]
   data.table::setnames(source, c(est, se), c('est', 'se')[c(T, !is.null(se))])
   
+  # check for >0
+  stopifnot('est must be >=0', all(is.na(source[, est]) | source[, est>=0]))
+  
   # validate source_id
   source[, .(res = validate_col(.SD,id = source_id, type = 'source')), by = by]
   

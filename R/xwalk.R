@@ -83,7 +83,7 @@ xwalk_folap = function(source, target, source_id = 'id', target_id = 'id', ...){
   names(source)[names(source) == source_id] <- 'source_id'
   names(target)[names(target) == target_id] <- 'target_id'
   
-  target$target_amount = sf::st_area(target)
+  target$target_amount = as.numeric(sf::st_area(target))
   source$start = as.numeric(sf::st_area(source))
   isect = withCallingHandlers(
     st_intersection(target,source, ...),

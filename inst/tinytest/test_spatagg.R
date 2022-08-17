@@ -179,7 +179,35 @@ partial_cover = data.table(source_id = 1:3, target_id = 1,
 t8.1 = crosswalk(src, 'id', est = 'est_count', est_type = 'count', xwalk_df = partial_cover)
 t8.2 = crosswalk(src, 'id', est = 'est_mean', est_type = 'mean', xwalk_df = partial_cover)
 tinytest::expect_equal(t8.1$est, 30 * 100/90)
-tinytest::expect_equal(t8.1$est, sum(10/c(20,30,40) * c(20,30,40)/100 * 100/90))
 
+# the mean estimates * weights * scalar
+tinytest::expect_equal(t8.2$est, sum(10/c(20,30,40) * c(20,30,40)/100 * 100/90))
 
+# without scaling
+t9.1 = crosswalk(src, 'id', est = 'est_count', est_type = 'count', xwalk_df = partial_cover, rescale = FALSE)
+t9.2 = crosswalk(src, 'id', est = 'est_mean', est_type = 'mean', xwalk_df = partial_cover, rescale = FALSE)
+tinytest::expect_equal(t9.1$est, 30)
+# the mean estimates * weights
+tinytest::expect_equal(t9.2$est, sum(10/c(20,30,40) * c(20,30,40)/100))
 
+# try with one by
+src_by = rbind(src, src)
+src_by[, bvar := c(1,1,1,2,2,2)]
+t10 = crosswalk(src_by, 'id', est = 'est_count', est_type = 'count', xwalk_df = partial_cover, by = 'bvar')
+tinytest::expect_equal(t10[1,'est'], t10[2,'est'])
+tinytest::expect_equal(t10[1,'est'], t8.1[1,'est'])
+
+# id needs to be unique within a group
+src_by = rbind(src_by, src_by)
+tinytest::expect_error(crosswalk(src_by, 'id', est = 'est_count', est_type = 'count', xwalk_df = partial_cover, by = 'bvar'), 'duplicate values')
+
+# try with two bys
+src_by[, bvar2 := sample(1:2, nrow(src_by), replace = T)]
+src_by = src_by[src_by[, .I[which.max(.I)], by = c('bvar', 'bvar2')]$V1,]
+t11.1 = crosswalk(src_by, 'id', est = 'est_count', est_type = 'count', xwalk_df = partial_cover, by = c('bvar', 'bvar2'))
+t11.2 = crosswalk(src_by[1], 'id', est = 'est_count', est_type = 'count', xwalk_df = partial_cover, by = c('bvar', 'bvar2'))
+row.names(t11.1) = NULL
+row.names(t11.2) = NULL
+tinytest::expect_equal(subset(t11.1,bvar == t11.2[, 'bvar'] & bvar2 == t11.2[, 'bvar2'])$est, t11.2$est)
+
+# make sure the 1000 draw thing works

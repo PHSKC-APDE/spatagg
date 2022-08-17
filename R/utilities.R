@@ -6,7 +6,8 @@
 validate_col = function(d, id, type = 'source'){
   if(id %in% names(d)){
     if(anyDuplicated(d[[id]])>0){
-      stop(paste0('In ', type, ': ', id, ' contains duplicate values'))
+      stop(paste0('In ', type, ': ', id, ' contains duplicate values (either in whole of input or a subgroup specified by `by`).
+                  It should be unique within each group (even if the group is the whole dataset)'))
     }
   }else{
     stop(paste0('In ', type, ': column named ', id, ' was not found'))
