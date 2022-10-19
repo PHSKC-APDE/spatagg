@@ -3,9 +3,9 @@
 #' @param source data.frame containing estimates to transfer to \code{source}
 #' @param source_id character. Column of ids that link source to xwalk_df
 #' @param est character. Column in \code{source} containing the estimates for transfer
-#' @param est_type character. One of "count" or "mean". The type of metric/"space" `est` is in
-#' @param se character [optional]. The standard error of the estimate in \code{source}
-#' @param by character [optional]. Vector of column names to compute by. A given id must be unique within the combination of by.
+#' @param proportion logical. Does `est` represent proportion (0 - 1) data?
+#' @param se character (optional). The standard error of the estimate in \code{source}
+#' @param by character (optional). Vector of column names to compute by. A given id must be unique within the combination of by.
 #' @param xwalk_df data.frame. Must have the following columns: source_id, target_id, s2t_fraction, isect_amount, tcoverage_amount, target_amount. Use create_xwalk to generate the crosswalk.
 #' @param rescale logical. Should the crosswalk weights by scaled to encompass all of target?
 #' 
@@ -16,12 +16,12 @@
 #' When rescale is TRUE, and tcoverage_amount != target_amount for a given source -> target pair
 #' the crosswalk weights will be scaled up by target_amount/tcoverage_amount
 #' 
-#' Crosswalk weights for est_type == "count" `est`s are s2t_fraction optionally scaled via the rescale option.
-#' For "mean"s, the crosswalk weights are s2t_fraction
+#' Crosswalk weights for `proportion = FALSE` are `s2t_fraction` optionally scaled via rescale.
+#' For `proportion = TRUE`, the crosswalk weights are `isect_amount/target_amount`. The rescale option is irrelevant.
 #' 
 #' @export
 #' 
-crosswalk = function(source, source_id, est, est_type = c('count'), se = NULL, by = NULL, xwalk_df, rescale = TRUE){
+crosswalk = function(source, source_id, est, proportion = FALSE, se = NULL, by = NULL, xwalk_df, rescale = TRUE){
   
   # convert source to data.table
   source = data.table::data.table(source)
@@ -33,12 +33,17 @@ crosswalk = function(source, source_id, est, est_type = c('count'), se = NULL, b
   data.table::setnames(source, c(est, se), c('est', 'se')[c(T, !is.null(se))])
   
   # check for >0
-  stopifnot('est must be >=0', all(is.na(source[, est]) | source[, est>=0]))
+  stopifnot('est must be >=0' = all(is.na(source[, est]) | source[, est>=0]))
   
   # validate source_id
   source[, .(res = validate_col(.SD,id = source_id, type = 'source')), by = by]
   
-  est_type = match.arg(est_type, c('count', 'mean'))
+  # Legacy naming
+  if(proportion){
+    est_type = 'mean'
+  }else{
+    est_type = 'count'
+  }
   
   # validate xwalk_df
   stopifnot('xwalk_df is missing at least one required column' =
@@ -48,12 +53,12 @@ crosswalk = function(source, source_id, est, est_type = c('count'), se = NULL, b
   
   # Prep the weights
   if(est_type == 'count'){
-    xwalk_df[, weight := s2t_fraction]
+    xwalk_df[, weight := s2t_fraction] # fraction of source that falls within target
+    if(rescale) xwalk_df[, weight := weight * target_amount/tcoverage_amount, by = 'target_id']
   } else{
     xwalk_df[, weight := isect_amount/target_amount] # fraction of target made up by source
   }
   
-  if(rescale) xwalk_df[, weight := weight * target_amount/tcoverage_amount, by = 'target_id']
   
   # validate est
   stopifnot('est is not numeric' = is.numeric(source[, est]))
@@ -70,6 +75,7 @@ crosswalk = function(source, source_id, est, est_type = c('count'), se = NULL, b
   
   # add on the xwalk_df
   source = merge(source, xwalk_df[, .(source_id, target_id, weight)], all.x = TRUE, by.x = source_id, by.y = 'source_id', allow.cartesian = TRUE)
+  source = source[!is.na(target_id)]
   
   # compute results
   source = source[, lapply(.SD, function(x) sum(x * weight)), by = c('target_id', by), .SDcols = estv]

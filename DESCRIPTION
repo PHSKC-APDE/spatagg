@@ -10,10 +10,12 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.1
 Imports: 
     data.table,
-    kcparcelpop (>= 0.0.0.9000),
     sf
 Depends: 
     R (>= 2.10)
 LazyData: true
 Remotes: github::PHSKC-APDE/kcparcelpop
-Suggests: tinytest
+Suggests:
+    tinytest,
+    kcparcelpop (>= 0.0.0.9000)
+    

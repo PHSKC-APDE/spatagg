@@ -8,6 +8,7 @@ crosswalk(
   source,
   source_id,
   est,
+  est_type = c("count"),
   se = NULL,
   by = NULL,
   xwalk_df,
@@ -21,13 +22,15 @@ crosswalk(
 
 \item{est}{character. Column in \code{source} containing the estimates for transfer}
 
+\item{est_type}{character. One of "count" or "mean". The type of metric/"space" \code{est} is in}
+
 \item{se}{character \link{optional}. The standard error of the estimate in \code{source}}
 
 \item{by}{character \link{optional}. Vector of column names to compute by. A given id must be unique within the combination of by.}
 
-\item{xwalk_df}{data.frame. Must have at least three columns: source_id, target_id, and s2t_fraction. Use create_xwalk to generate the crosswalk.}
+\item{xwalk_df}{data.frame. Must have the following columns: source_id, target_id, s2t_fraction, isect_amount, tcoverage_amount, target_amount. Use create_xwalk to generate the crosswalk.}
 
-\item{rescale}{logical. Should the crosswalk weights (s2t_fraction) by scaled to 1 per target? Weights that don't initially sum to 1 are usually when source doesn't totally cover target}
+\item{rescale}{logical. Should the crosswalk weights by scaled to encompass all of target?}
 }
 \description{
 Crosswalk estimates between non-nesting geographies
@@ -35,5 +38,9 @@ Crosswalk estimates between non-nesting geographies
 \details{
 By computations happen all at once-- that is, if c('race','sex') is passed, the computations are by the intersection of race and sex, not as race and then sex.
 
-Rescale is generally advised when "est" is not a count. When 'est' is a count, mileage may vary.
+When rescale is TRUE, and tcoverage_amount != target_amount for a given source -> target pair
+the crosswalk weights will be scaled up by target_amount/tcoverage_amount
+
+Crosswalk weights for est_type == "count" \code{est}s are s2t_fraction optionally scaled via the rescale option.
+For "mean"s, the crosswalk weights are s2t_fraction
 }

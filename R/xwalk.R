@@ -67,7 +67,7 @@ create_xwalk = function(source, target, source_id = 'GEOID', target_id = 'GEOID'
 #' @param ... options passed to \code{sf::st_intersection}
 #' 
 #' @importFrom sf st_intersection st_area st_geometry
-#' @importFrom data.table setDF setDT
+#' @importFrom data.table setDF setDT setorderv
 #' @return data.frame with columns from target, source, and a `fraction`
 #' denoting the fraction of source that intersects with target spatially.
 #' Depending on how the two geography sets overlap, it may be that source doesn't
@@ -104,6 +104,7 @@ xwalk_folap = function(source, target, source_id = 'id', target_id = 'id', ...){
   
   # removing 0 fraction overlaps-- which should just be shared edges.
   isect = isect[fraction>0, .(source_id, target_id, s2t_fraction = fraction, isect_amount = end, tcoverage_amount = coverage_amount, target_amount)]
+  data.table::setorderv(isect, c('source_id', 'target_id'))
   data.table::setDF(isect)
   return(isect)
   
@@ -162,29 +163,38 @@ xwalk_polap = function(source, target, source_id = 'id', target_id = 'id', point
   sf::st_geometry(point_pop) = NULL
   point_pop = data.table::data.table(point_pop)
   
-  # compute the number of times a given point is in the output dataset
-  point_pop[, Npp := .N, ppid]
+  # compute fraction of population in source that also belongs to target
+  # ipop
+  ipop = point_pop[!is.na(target_id) & !is.na(source_id), .(ipop = sum(pop)), .(source_id, target_id)]
   
-  # compute intersect population
-  point_pop = point_pop[, ipop := sum(pop), .(source_id, target_id)]
+  # compute the amount of population in source
+  spop = unique(point_pop[!is.na(source_id), .(source_id,ppid,pop)])[, .(spop = sum(pop)), source_id]
+  # and then calculate how much of that belongs to each target
+  sfrac = merge(ipop, spop, all.x = T, by = 'source_id')
+  # s2t_fraction
+  sfrac[, s2t_fraction := ipop/spop]
   
-  # Percent of source's population that overlaps with target (e.g 30 out of 100 belong to target)
-  # Adjusted for points falling into multiple polygons
-  # This needs to be made more robust to duplication from the left-join st_joins
-  point_pop[, s2t_fraction := ipop/sum(pop/Npp), source_id]
-  point_pop[, target_amount := sum(pop), target_id]
-  point_pop[!is.na(source_id), tcoverage_amount := sum(ipop/Npp), target_id] # excluding instances where source id doesn't exist
-  point_pop = point_pop[!is.na(source_id) & !is.na(target_id), # where a point exists in no, or just one of source/target 
-                        .(source_id, target_id, s2t_fraction, isect_amount = ipop, tcoverage_amount, target_amount)]
-  # from a row per point to a row per pairing
-  point_pop = unique(point_pop)
+  # compute the amount of population in target
+  # target_amount
+  tpop = unique(point_pop[!is.na(target_id), .(target_id, ppid, pop)])[, .(tpop = sum(pop)), target_id]
   
-  stopifnot(all(point_pop[, .N, .(source_id, target_id)][, N == 1]))
+  # compute the amount of population in target that is also in source
+  # tcoverage_amount
+  tcov = unique(point_pop[!is.na(target_id) & !is.na(source_id), .(target_id, ppid, pop)])[, .(tcov = sum(pop)), target_id]
   
-  data.table::setDF(point_pop)
+  # compile things
+  res = merge(sfrac, tpop, all.x = T, by = 'target_id')
+  res = merge(res, tcov, all.x = T, by = 'target_id')
+  res = res[,.(source_id, target_id, s2t_fraction, isect_amount = ipop,
+               tcoverage_amount = tcov, target_amount = tpop)]
+
+  stopifnot(all(res[, .N, .(source_id, target_id)][, N == 1]))
+  data.table::setorderv(res, c('source_id', 'target_id'))
+  
+  data.table::setDF(res)
   
   
-  return(point_pop)
+  return(res)
   
 }
 
