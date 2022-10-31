@@ -8,7 +8,7 @@ crosswalk(
   source,
   source_id,
   est,
-  est_type = c("count"),
+  proportion = FALSE,
   se = NULL,
   by = NULL,
   xwalk_df,
@@ -22,11 +22,11 @@ crosswalk(
 
 \item{est}{character. Column in \code{source} containing the estimates for transfer}
 
-\item{est_type}{character. One of "count" or "mean". The type of metric/"space" \code{est} is in}
+\item{proportion}{logical. Does \code{est} represent proportion (0 - 1) data?}
 
-\item{se}{character \link{optional}. The standard error of the estimate in \code{source}}
+\item{se}{character (optional). The standard error of the estimate in \code{source}}
 
-\item{by}{character \link{optional}. Vector of column names to compute by. A given id must be unique within the combination of by.}
+\item{by}{character (optional). Vector of column names to compute by. A given id must be unique within the combination of by.}
 
 \item{xwalk_df}{data.frame. Must have the following columns: source_id, target_id, s2t_fraction, isect_amount, tcoverage_amount, target_amount. Use create_xwalk to generate the crosswalk.}
 
@@ -41,6 +41,6 @@ By computations happen all at once-- that is, if c('race','sex') is passed, the 
 When rescale is TRUE, and tcoverage_amount != target_amount for a given source -> target pair
 the crosswalk weights will be scaled up by target_amount/tcoverage_amount
 
-Crosswalk weights for est_type == "count" \code{est}s are s2t_fraction optionally scaled via the rescale option.
-For "mean"s, the crosswalk weights are s2t_fraction
+Crosswalk weights for \code{proportion = FALSE} are \code{s2t_fraction} optionally scaled via rescale.
+For \code{proportion = TRUE}, the crosswalk weights are \code{isect_amount/target_amount}. The rescale option is irrelevant.
 }

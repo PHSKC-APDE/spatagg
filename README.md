@@ -36,6 +36,21 @@ remotes::install_github('https://github.com/PHSKC-APDE/kcparcelpop/')
 
 ### Construct test geographies
 
+The code below creates a 3 x 3 grid of squares as a set of “source”
+polygons. The source polygon contains the information that needs to be
+translated/aggregated to “target” polygon. In “real” instances, source
+polygons will be stuff like census tracts or ZIP codes.
+
+Two target polygons are created for demonstration purposes. The first
+nests nicely with the source polygons (e.g. can be exactly constructed
+by source polygons) whereas the second overlaps the source polygons but
+does not nest. In this example, each “target” is just one polygon, but
+it could be a collection of polygons– e.g. cities, regions, or ZIP
+codes.
+
+In general, you want the source polygons to be smaller than the target
+polygons.
+
 ``` r
 library('spatagg')
 library('sf', quietly = TRUE)
@@ -52,6 +67,7 @@ set.seed(1)
 grid_size = 3
 grid = expand.grid(x = seq_len(grid_size)-1, y = seq_len(grid_size)-1)
 
+# given a bottom left corner, create a square
 poly_points = function(x, y, step =1){
   mat = matrix(c(x, y, # bottom left
                  x+step, y, # bottom right
@@ -92,7 +108,8 @@ tp2 = sf::st_sf(tp2, sf_column_name = 'geom')
   ggplot() + geom_sf(data = source_poly, fill = NA) +
     #geom_sf(data = target_poly, fill = NA, color = 'red') +
     geom_sf(data = tp1, fill = NA, color = 'purple', size = 1.2) +
-    theme_minimal() + 
+    geom_sf_label(data = source_poly, aes(label = id)) +
+    theme_classic() + 
     ggtitle('Source polygons nest within target',
             'Source = black, target = purple')
 ```
@@ -102,8 +119,9 @@ tp2 = sf::st_sf(tp2, sf_column_name = 'geom')
 ``` r
   ggplot() + geom_sf(data = source_poly, fill = NA) +
     geom_sf(data = tp2, fill = NA, color = 'purple', size = 1.2) +
+    geom_sf_label(data = source_poly, aes(label = id)) +
     #geom_sf(data = overlap_poly, fill = NA, color = 'purple') +
-    theme_minimal() + 
+    theme_classic() + 
     ggtitle('Source polygons do not cleanly nest within target',
            'Source = black, target = purple')
 ```
@@ -123,8 +141,10 @@ weights are applied via `crosswalk`.
 
 The following command creates a set of geographic overlap weights. By
 default, `create_xwalk` expects that source and target overlap by at
-least 75%. However, `tp1` and `source_poly` only overlap by 44%, so the
-`min_overlap` option is reduced to prevent an error.
+least 75%. This default is set high because I expect most instances of
+source/target overlap to broadly cover the same area (e.g. two different
+ways of carving up KC). However, `tp1` and `source_poly` only overlap by
+44%, so the `min_overlap` option is reduced to prevent an error.
 
 ``` r
 cw1 = create_xwalk(source_poly, tp1,
@@ -142,10 +162,40 @@ knitr::kable(cw1)
 The resulting crosswalk data.frame returns a row per each source:target
 pair. `s2t_fraction` represents the percent of a source polygon that
 falls within the specified target polygon. `isect_amount` is the area of
-the intersection. `tcoverage_amount` is the area of target covered by
-source. `target_amount` is the area of the target polygon.
+the intersection (in the units squared of the CRS of source_poly).
+`tcoverage_amount` is the area of target covered by source polygons. For
+example, in this example, 4 units^2 of target is covered by source
+polygons. `target_amount` is the total area of the target polygon (by
+`target_id`). Since `tcoverage_amount == target_amount` we can infer
+that tp1 is fully covered by source_poly (which was already known, but
+hey, its fun to confirm).
 
 ##### Convert between source and target
+
+The `crosswalk` function has the following arguments:
+
+-   `source`: the polygons with estimates to be
+    converted/aggregated/translated to the target polygon(s) from the
+    `create_xwalk` step
+
+-   `source_id`: Column name of the id column for `source`
+
+-   `est`: column name of the estimate to be converted
+
+-   `proportion`: Logical flag denoting whether `est` represents
+    proportion data
+
+-   `se`: An optional name of the column containing the standard error
+    of `est`
+
+-   `by`: An optional vector of column names to repeat the translation
+    by. See `?crosswalk` for more details
+
+-   `xwalk_df`: The result of `create_xwalk` step
+
+-   `rescale`: Logical flag to determine whether the
+    conversion/aggregation weights should be scaled to approximate full
+    coverage of target by `source`
 
 ``` r
 # for counts
@@ -323,8 +373,8 @@ knitr::kable(ppcw2)
 
 The output of a “point pop” crosswalk is structured similarly to the
 fractional geographic overlap ones computed above. The main difference
-is `isect_amount`, `tcoverage_amount` and `target_amount` are in terms
-of population rather than area.
+is the units of `isect_amount`, `tcoverage_amount` and `target_amount`
+are population instead of area (e.g. unit^2)
 
 #### Convert estimates from source to target
 
@@ -364,8 +414,8 @@ r6$est
 
 Sometimes source estimates might include some metric of uncertainty that
 a user wishes to propagate to the target geography. Passing a column of
-standard errors via the `se` argument will compute, via simulation, a se
-for the target.
+standard errors via the `se` argument will compute, via simulation, a
+`se` for the target.
 
 ``` r
 # create an se for source_poly
