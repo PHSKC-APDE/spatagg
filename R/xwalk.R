@@ -165,10 +165,10 @@ xwalk_polap = function(source, target, source_id = 'id', target_id = 'id', point
   
   # compute fraction of population in source that also belongs to target
   # ipop
-  ipop = point_pop[!is.na(target_id) & !is.na(source_id), .(ipop = sum(pop)), .(source_id, target_id)]
+  ipop = point_pop[!is.na(target_id) & !is.na(source_id), .(ipop = sum(pop, na.rm = TRUE)), .(source_id, target_id)]
   
   # compute the amount of population in source
-  spop = unique(point_pop[!is.na(source_id), .(source_id,ppid,pop)])[, .(spop = sum(pop)), source_id]
+  spop = unique(point_pop[!is.na(source_id), .(source_id,ppid,pop)])[, .(spop = sum(pop,na.rm =TRUE)), source_id]
   # and then calculate how much of that belongs to each target
   sfrac = merge(ipop, spop, all.x = T, by = 'source_id')
   # s2t_fraction
@@ -176,11 +176,11 @@ xwalk_polap = function(source, target, source_id = 'id', target_id = 'id', point
   
   # compute the amount of population in target
   # target_amount
-  tpop = unique(point_pop[!is.na(target_id), .(target_id, ppid, pop)])[, .(tpop = sum(pop)), target_id]
+  tpop = unique(point_pop[!is.na(target_id), .(target_id, ppid, pop)])[, .(tpop = sum(pop, na.rm =TRUE)), target_id]
   
   # compute the amount of population in target that is also in source
   # tcoverage_amount
-  tcov = unique(point_pop[!is.na(target_id) & !is.na(source_id), .(target_id, ppid, pop)])[, .(tcov = sum(pop)), target_id]
+  tcov = unique(point_pop[!is.na(target_id) & !is.na(source_id), .(target_id, ppid, pop)])[, .(tcov = sum(pop, na.rm = TRUE)), target_id]
   
   # compile things
   res = merge(sfrac, tpop, all.x = T, by = 'target_id')
