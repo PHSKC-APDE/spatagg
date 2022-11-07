@@ -20,7 +20,8 @@ ptpop = st_transform(kcparcelpop::parcel_pop, st_crs(hra))
 # assign each parcel to a ZIP code
 ptpop = st_join(ptpop, zip)
 ptpop = subset(ptpop)
-# randomly assign a parcel based on ZIP
+
+# randomly assign a parcel based on ZIP proportional to population
 # ideally this would also be year based
 # but we'll leave that for later
 assign_xy = function(x, zip, pts){
@@ -50,3 +51,6 @@ brfss = lapply(names(brfss), function(b){
 })
 
 brfss = rbindlist(brfss)
+
+# from here, do other st_joins to get other desired geographies
+
