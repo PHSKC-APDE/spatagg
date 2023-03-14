@@ -4,12 +4,14 @@
 \alias{check_internal_consistency}
 \title{check the internal consitency of an sf file}
 \usage{
-check_internal_consistency(x, stop = TRUE)
+check_internal_consistency(x, stop = TRUE, return_probs = FALSE)
 }
 \arguments{
 \item{x}{a sf data.frame}
 
 \item{stop}{logical. Should this function throw an error or return the results?}
+
+\item{return_probs}{logical. Should the function return a vector of logicals indicating the rows with problems instead of the query results?}
 }
 \description{
 check the internal consitency of an sf file

@@ -7,7 +7,7 @@ Description: Provides routines for the aggregation of estimates between sets of 
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.3
 Imports: 
     data.table,
     sf
@@ -18,4 +18,3 @@ Remotes: github::PHSKC-APDE/kcparcelpop
 Suggests:
     tinytest,
     kcparcelpop (>= 0.0.0.9003)
-    
