@@ -16,7 +16,7 @@ crosswalk(
 )
 }
 \arguments{
-\item{source}{data.frame containing estimates to transfer to \code{source}}
+\item{source}{data.frame containing estimates to transfer to \code{target}}
 
 \item{source_id}{character. Column of ids that link source to xwalk_df}
 

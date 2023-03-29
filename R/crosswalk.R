@@ -1,6 +1,6 @@
 #' Crosswalk estimates between non-nesting geographies
 #' 
-#' @param source data.frame containing estimates to transfer to \code{source}
+#' @param source data.frame containing estimates to transfer to \code{target}
 #' @param source_id character. Column of ids that link source to xwalk_df
 #' @param est character. Column in \code{source} containing the estimates for transfer
 #' @param proportion logical. Does `est` represent proportion (0 - 1) data?
@@ -19,6 +19,7 @@
 #' Crosswalk weights for `proportion = FALSE` are `s2t_fraction` optionally scaled via rescale.
 #' For `proportion = TRUE`, the crosswalk weights are `isect_amount/target_amount`. The rescale option is irrelevant.
 #' 
+#' @importFrom stats rnorm sd
 #' @export
 #' 
 crosswalk = function(source, source_id, est, proportion = FALSE, se = NULL, by = NULL, xwalk_df, rescale = TRUE){
