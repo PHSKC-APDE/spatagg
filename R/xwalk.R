@@ -159,7 +159,8 @@ xwalk_polap = function(source, target, source_id = 'id', target_id = 'id', point
   # One point might belong to two target polygons if they overlap (e.g. at the vertex)
   point_pop = sf::st_join(point_pop, source[, source_id])
   point_pop = sf::st_join(point_pop, target[, target_id])
-  names(point_pop)[1:4] <- c('pop','ppid', 'source_id', 'target_id')
+  names(point_pop)[names(point_pop) == source_id] = 'source_id'
+  names(point_pop)[names(point_pop) == target_id] = 'target_id'
   sf::st_geometry(point_pop) = NULL
   point_pop = data.table::data.table(point_pop)
   
