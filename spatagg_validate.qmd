@@ -12,7 +12,7 @@ The spatagg package provides several functions to facilitate the conversion of a
 
 ### Boundary
 
-First, we create an overall geographic boundary from which smaller non-overlapping sets of geographies will be generated.
+First, an overall geographic boundary is created. This boundary serves as a sandbox from which smaller non-overlapping sets of geographies are be generated.
 
 ```{r, include = F}
 knitr::opts_chunk$set(message=FALSE, warning=FALSE )
@@ -43,7 +43,7 @@ boundary = sf::st_sf(r, id = 1)
 
 ### Source and target
 
-Two sets of geographies will be created. The first, src (or, source) will be the origin geographic set for the data (to be created later). The second, tgt(or, target), is the desired geographic level for the estimates.
+Two sets of geographies are created. The first, src (or, source) is the origin geographic set for the data (to be created later). The second, tgt (or, target), is the desired geographic level for the estimates. Both are provided in maps below. They are created by sampling a set of points within the boundary and then creating a voronoi tessellation around the points. By design, there are more source polygons than target ones. This reflects that most instances of non-nesting aggregation go between a set of geographically smaller source polygons and a larger (geographically) set of target polygons. For example, Census Tracts to ZIP codes.
 
 ```{r}
 src = st_sample(boundary, 30)
@@ -67,7 +67,7 @@ plot(tgt[,'tgtid'])
 
 ### Population and variables
 
-Randomly generate the location of "people" within the boundary. Randomly assign the people a binary condition and numeric one. Spatial patterning derives from src
+The location of "people are randomly generated within the boundary. These "people" are randomly assigned a binary variable value and a numeric (count) variable. The src polygon is used to inject some spatial patterning.
 
 ```{r}
 # Bring in source information to give it some spatial patterning
@@ -101,9 +101,11 @@ ggplot(grid) + geom_sf(aes(fill = N), color = NA) + theme_bw() + ggtitle('Popula
 
 ### Aggregate to source
 
+The maps below show the "true" values for the `bin` and `num` variables at the source geography level.
+
 ```{r}
 
-srcp = pop %>% st_drop_geometry() %>% group_by(srcid) %>% summarize(bin = mean(bin), num = mean(num))
+srcp = pop %>% st_drop_geometry() %>% group_by(srcid) %>% summarize(bin = mean(bin), num = sum(num))
 src = merge(src[, c('srcid', 'npop','binperc')], srcp, all.x = T, by = 'srcid')
 
 plot(src[, c('bin', 'num')])
@@ -111,6 +113,8 @@ plot(src[, c('bin', 'num')])
 ```
 
 ### Aggregate to target
+
+The maps below show the "true" values of `bin` and `num` at the target geography level. The resulting values are what will serve as the observed truth when evaluating the various types of spatial crosswalking.
 
 ```{r}
 tgtp = pop %>% st_intersection(tgt) %>% st_drop_geometry() %>% group_by(tgtid) %>% summarize(bin = mean(bin), num = sum(num))
@@ -121,6 +125,10 @@ plot(tgt[, c('bin', 'num')])
 ## Compute and apply crosswalks
 
 ### Geographic Crosswalks
+
+Geographic crosswalks distribute values from source to target based on geographic overlap. For the `num` variable, a source polygon contributes the percent overlap to a given target. For example, a source polygon that has 30% of its area overlapping a given target polygon will contribute `.3 * num` to the final estimate for target. The target polygon `bin` value is computed slightly differently. Instead, source polygon contributes its value based on the relative overlap with target. For example, a source polygon's area may overlap 30% with the target polygon, but only cover 10% of the target polygon. As such, the resulting weight of the source to target pairing is 10%. By weighting in terms of relative share of target, \[0-1\] bounding for binary variables (or percents or proportions or whatever) will be preserved.
+
+Geographic crosswalks can be considered a special case of population crosswalks with the assumption that population is equally distributed within a source polygon.
 
 ```{r}
 library('spatagg')
@@ -136,6 +144,10 @@ setnames(tgt_g, c('tgtid', 'gbin', 'gnum'))
 
 ### Population based crosswalk
 
+This set of crosswalk weights are generated based on the relative overlap of population between source and target. The caveats between count and proportion data discussed above apply here as well.
+
+Note: there is no reason to use the spatagg package if your data are available at the point level. This example exists as an idealized case. More generally, you are going to have some sort of areal population expressed as points (see below). That is really what the 'point pop' method is for.
+
 ```{r}
 pop$pop = 1
 
@@ -150,9 +162,11 @@ setnames(tgt_p, c('tgtid', 'pbin', 'pnum'))
 
 ### Approximate parcel population
 
+Usually, point population locations and values will be a point based (e.g. centriod) representation of small area. In this case, a few thousand points are distributed within the boundary and population points are aggregated to the closet one. This is to roughly approximate the parcel population estimates made available in the kcparcelpop package. This also reflect how people actually live-- in buildings shared with other and not entirely randomly distributed throughout space.
+
 ```{r}
 # sample some points to represent parcels
-parcel = st_sample(boundary, 6000)
+parcel = st_sample(boundary, 3000)
 parcel = st_sf(parcel_id = seq_along(parcel), geom = parcel)
 
 # assign parcel id to pop based on proximity
@@ -176,6 +190,8 @@ setnames(tgt_pp, c('tgtid', 'ppbin', 'ppnum'))
 ```
 
 ### Compare results
+
+Unsurprisingly, the higher the spatial resolution of the population data the more accurate (in this case, by a lower RMSE) the resulting aggregated/crosswalked estimates are to the "truth."
 
 ```{r}
 res = tgt %>% st_drop_geometry()
