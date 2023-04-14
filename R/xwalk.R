@@ -192,6 +192,8 @@ xwalk_polap = function(source, target, source_id = 'id', target_id = 'id', point
   stopifnot(all(res[, .N, .(source_id, target_id)][, N == 1]))
   data.table::setorderv(res, c('source_id', 'target_id'))
   
+  res = res[isect_amount >0]
+  
   data.table::setDF(res)
   
   
