@@ -26,6 +26,7 @@ library('data.table')
 library('sf')
 library('dplyr', quietly = TRUE)
 library('ggplot2', quietly = TRUE)
+library('spatagg')
 # given a bottom left corner, create a square
 poly_points = function(x, y, step =1){
   mat = matrix(c(x, y, # bottom left
@@ -132,7 +133,6 @@ Geographic crosswalks distribute values from source to target based on geographi
 Geographic crosswalks can be considered a special case of population crosswalks with the assumption that population is equally distributed within a source polygon.
 
 ```{r}
-library('spatagg')
 s2t = create_xwalk(source = src, target = tgt, source_id = 'srcid', target_id = 'tgtid',method = 'fractional overlap')
 tgt_gb = crosswalk(src, 'srcid', 'bin', proportion = T, xwalk_df = s2t, rescale = T)
 tgt_gn = crosswalk(src, 'srcid', 'num', proportion = F, xwalk_df = s2t, rescale = F)
@@ -163,7 +163,7 @@ setnames(tgt_p, c('tgtid', 'pbin', 'pnum'))
 
 ### Approximate parcel population
 
-Usually, point population locations and values will be a point based (e.g. centriod) representation of small area. In this case, a few thousand points are distributed within the boundary and population points are aggregated to the closet one. This is to roughly approximate the parcel population estimates made available in the kcparcelpop package. This also reflect how people actually live-- in buildings shared with other and not entirely randomly distributed throughout space.
+Usually, point population locations and values will be a point based (e.g. centriod) representation of small area. In this case, a few thousand points are distributed within the boundary and population points are aggregated to the closet one. This is to roughly approximate the parcel population estimates made available in the kcparcelpop package. This also reflects how people actually live-- in buildings shared with other and not entirely randomly distributed throughout space.
 
 ```{r}
 # sample some points to represent parcels
@@ -317,4 +317,177 @@ g
 
 ## A 'real' data example
 
-coming soon
+Our real data examples will be examining the percent of deaths between 2018 and 2020 that were due to diabetes and the count of deaths due all drugs during that period. The source geography will be tracts and the target geography will be HRAs. Records that are not geocoded within King County are omitted from the analysis.
+
+```{r, include=FALSE}
+library('DBI')
+
+tract = st_read("//dphcifs/APDE-CDIP/Shapefiles/Census_2020/tract/kc_tract.shp", quiet = T)
+
+hra = st_read("//dphcifs/APDE-CDIP/Shapefiles/HRA/hra_2020.shp", quiet = T)
+
+# Load death data
+con <- odbc::dbConnect(odbc::odbc(),
+                           Driver = "SQL Server",
+                           Server = "KCITSQLUTPDBH51",
+                           Database = "PH_APDEStore")
+    
+
+deaths <- setDT(
+  DBI::dbGetQuery(
+    con,
+    "select fa.[state_file_number], chi_year, diabetes, all_drugs, sg.lat, sg.long
+    from death.final_analytic as fa
+    left join [PH_APDEStore].[death].[stage_geo] as sg
+    on sg.state_file_number = fa.state_file_number
+    where chi_year >=2018 AND chi_year<=2020 and
+    lat is not null and long is not null"
+  )
+)
+
+deaths = st_as_sf(deaths, coords = c('long', 'lat'), crs = 4326)
+kc = st_read('//Kcitfsrprpgdw01/kclib/Plibrary2/politicl/shapes/polygon/kingco.shp', quiet = T)
+kc = st_transform(kc, st_crs(hra))
+deaths = st_transform(deaths, st_crs(hra))
+deaths = st_intersection(deaths, summarize(kc))
+
+PN = function(x) prettyNum(x, big.mark = ',')
+
+```
+
+### The data
+
+In the extract, there are `r PN(nrow(deaths))` deaths from all causes, `r PN(sum(deaths$diabetes ==1, na.rm = T))` from diabetes and `r PN(sum(deaths$all_drugs ==1, na.rm = T))` from all drugs.
+
+```{r, echo = FALSE}
+
+deaths = deaths %>% mutate(cause = case_when(diabetes ==1 ~ 'Diabetes', all_drugs ==1 ~ 'Drugs', TRUE ~ 'Other'))
+
+g = ggplot() + 
+  geom_sf(data = kc) + 
+  geom_sf(data = deaths, aes(color = cause)) +
+  scale_color_brewer(type = 'qual', palette = 2) +
+  theme_bw() +
+  ggtitle('Deaths in KC, 2018 - 2020')
+
+g
+
+```
+
+### The truth
+
+```{r}
+# Tract level
+tract = st_transform(tract, st_crs(deaths))
+dtract = st_join(deaths, tract[,'GEOID'])
+dtract = dtract %>% 
+  st_drop_geometry() %>% 
+  group_by(GEOID) %>%
+  summarize(diabetes = sum(diabetes,na.rm =T),
+            drugs = sum(all_drugs, na.rm = T),
+            all = n())
+
+dtract = dtract %>% mutate(pdiabetes := diabetes/all)
+
+# HRA
+
+dhra = st_join(deaths, hra[,'id']) %>%
+  st_drop_geometry() %>%
+  group_by(id) %>%
+   summarize(diabetes = sum(diabetes,na.rm =T),
+            drugs = sum(all_drugs, na.rm = T),
+            all = n())%>% 
+  mutate(pdiabetes := diabetes/all) %>%
+  filter(!is.na(id))
+
+
+```
+
+### Crosswalks
+
+```{r}
+geog = create_xwalk(tract, hra, 'GEOID', 'id', method = 'fractional overlap')
+ppop = create_xwalk(tract, hra, 'GEOID', 'id', method = 'point pop', point_pop = kcparcelpop::parcel_pop)
+ppop = ppop %>% filter(isect_amount >0)
+
+# go from tract to hra
+t2hra = function(dtract, xw,  type = 'geog'){
+  
+  r = lapply(c('diabetes', 'drugs', 'all', 'pdiabetes'), function(x){
+    
+    d = crosswalk(dtract, 'GEOID', est = x, 
+              proportion = x == 'pdiabetes', 
+              xwalk_df = xw)
+    
+    d$var = x
+    
+    d
+    
+  })
+  
+  r = rbindlist(r)
+  r = dcast(r, target_id ~ var, value.var = 'est')
+  r[, 'type' := type]
+  
+  r
+}
+
+rgeog = t2hra(dtract, geog, 'geog')
+rppop = t2hra(dtract, ppop, 'ppop')
+
+# compute rmse for stuff
+compare_to_truth = function(obs, pred){
+  pred = copy(pred)
+  setnames(pred, 
+           c('diabetes', 'drugs', 'all', 'pdiabetes'),
+           c('e_diabetes', 'e_drugs', 'e_all', 'e_pdiabetes')
+           )
+  
+  r = merge(obs, pred, all.x = T, by.x = 'id', by.y = 'target_id')
+  setDT(r)
+  
+  # convert two counts, and then compute
+  r[, e_pdiabetes2 := e_diabetes/e_all]
+  
+  # compute RMSEs
+  e = r[, .(all = rmse(all, e_all),
+        diabetes = rmse(diabetes, e_diabetes),
+        drugs = rmse(drugs, e_drugs),
+        pdiabetes = rmse(pdiabetes, e_pdiabetes),
+        pdiabetes2 = rmse(pdiabetes, e_pdiabetes2)), type]
+  e
+  
+}
+
+cgeog = compare_to_truth(dhra, rgeog)
+cppop = compare_to_truth(dhra, rppop)
+
+knitr::kable(rbind(cgeog, cppop))
+```
+
+As the table shows, parcel population has lower overall error across all indicators.
+
+```{r}
+
+dhra = merge(dhra, rgeog[, .(id = target_id, geog_all = all)], all.x = T, by = 'id')
+
+dhra = merge(dhra, rppop[, .(id = target_id, ppop_all = all)], all.x = T, by = 'id')
+
+setDT(dhra)
+ghra = melt(dhra[, .(id, all, geog_all, ppop_all)], id.vars = c('id', 'all'))
+ghra[, dif := all - value]
+ghra[, variable := factor(variable, c('geog_all', 'ppop_all'), c('Geographic', 'Parcel Pop'))]
+ghra = merge(ghra, hra[, 'id'], by = 'id')
+ghra = st_as_sf(ghra)
+
+ggplot(ghra, aes(fill = dif)) + 
+  geom_sf() + 
+  facet_wrap(~variable) +
+  scale_fill_viridis_c() +
+  theme_bw() +
+  ggtitle('Obs - Pred by crosswalk type', 'All deaths') +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank())
+
+```

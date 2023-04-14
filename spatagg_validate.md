@@ -23,6 +23,7 @@ library('data.table')
 library('sf')
 library('dplyr', quietly = TRUE)
 library('ggplot2', quietly = TRUE)
+library('spatagg')
 # given a bottom left corner, create a square
 poly_points = function(x, y, step =1){
   mat = matrix(c(x, y, # bottom left
@@ -168,7 +169,6 @@ crosswalks with the assumption that population is equally distributed
 within a source polygon.
 
 ``` r
-library('spatagg')
 s2t = create_xwalk(source = src, target = tgt, source_id = 'srcid', target_id = 'tgtid',method = 'fractional overlap')
 tgt_gb = crosswalk(src, 'srcid', 'bin', proportion = T, xwalk_df = s2t, rescale = T)
 tgt_gn = crosswalk(src, 'srcid', 'num', proportion = F, xwalk_df = s2t, rescale = F)
@@ -209,8 +209,9 @@ Usually, point population locations and values will be a point based
 thousand points are distributed within the boundary and population
 points are aggregated to the closet one. This is to roughly approximate
 the parcel population estimates made available in the kcparcelpop
-package. This also reflect how people actually live– in buildings shared
-with other and not entirely randomly distributed throughout space.
+package. This also reflects how people actually live– in buildings
+shared with other and not entirely randomly distributed throughout
+space.
 
 ``` r
 # sample some points to represent parcels
@@ -387,4 +388,137 @@ g
 
 ## A ‘real’ data example
 
-coming soon
+Our real data examples will be examining the percent of deaths between
+2018 and 2020 that were due to diabetes and the count of deaths due all
+drugs during that period. The source geography will be tracts and the
+target geography will be HRAs. Records that are not geocoded within King
+County are omitted from the analysis.
+
+### The data
+
+In the extract, there are 40,946 deaths from all causes, 1,221 from
+diabetes and 1,204 from all drugs.
+
+![](spatagg_validate_files/figure-commonmark/unnamed-chunk-12-1.png)
+
+### The truth
+
+``` r
+# Tract level
+tract = st_transform(tract, st_crs(deaths))
+dtract = st_join(deaths, tract[,'GEOID'])
+dtract = dtract %>% 
+  st_drop_geometry() %>% 
+  group_by(GEOID) %>%
+  summarize(diabetes = sum(diabetes,na.rm =T),
+            drugs = sum(all_drugs, na.rm = T),
+            all = n())
+
+dtract = dtract %>% mutate(pdiabetes := diabetes/all)
+
+# HRA
+
+dhra = st_join(deaths, hra[,'id']) %>%
+  st_drop_geometry() %>%
+  group_by(id) %>%
+   summarize(diabetes = sum(diabetes,na.rm =T),
+            drugs = sum(all_drugs, na.rm = T),
+            all = n())%>% 
+  mutate(pdiabetes := diabetes/all) %>%
+  filter(!is.na(id))
+```
+
+### Crosswalks
+
+``` r
+geog = create_xwalk(tract, hra, 'GEOID', 'id', method = 'fractional overlap')
+ppop = create_xwalk(tract, hra, 'GEOID', 'id', method = 'point pop', point_pop = kcparcelpop::parcel_pop)
+ppop = ppop %>% filter(isect_amount >0)
+
+# go from tract to hra
+t2hra = function(dtract, xw,  type = 'geog'){
+  
+  r = lapply(c('diabetes', 'drugs', 'all', 'pdiabetes'), function(x){
+    
+    d = crosswalk(dtract, 'GEOID', est = x, 
+              proportion = x == 'pdiabetes', 
+              xwalk_df = xw)
+    
+    d$var = x
+    
+    d
+    
+  })
+  
+  r = rbindlist(r)
+  r = dcast(r, target_id ~ var, value.var = 'est')
+  r[, 'type' := type]
+  
+  r
+}
+
+rgeog = t2hra(dtract, geog, 'geog')
+rppop = t2hra(dtract, ppop, 'ppop')
+
+# compute rmse for stuff
+compare_to_truth = function(obs, pred){
+  pred = copy(pred)
+  setnames(pred, 
+           c('diabetes', 'drugs', 'all', 'pdiabetes'),
+           c('e_diabetes', 'e_drugs', 'e_all', 'e_pdiabetes')
+           )
+  
+  r = merge(obs, pred, all.x = T, by.x = 'id', by.y = 'target_id')
+  setDT(r)
+  
+  # convert two counts, and then compute
+  r[, e_pdiabetes2 := e_diabetes/e_all]
+  
+  # compute RMSEs
+  e = r[, .(all = rmse(all, e_all),
+        diabetes = rmse(diabetes, e_diabetes),
+        drugs = rmse(drugs, e_drugs),
+        pdiabetes = rmse(pdiabetes, e_pdiabetes),
+        pdiabetes2 = rmse(pdiabetes, e_pdiabetes2)), type]
+  e
+  
+}
+
+cgeog = compare_to_truth(dhra, rgeog)
+cppop = compare_to_truth(dhra, rppop)
+
+knitr::kable(rbind(cgeog, cppop))
+```
+
+| type |    all | diabetes | drugs | pdiabetes | pdiabetes2 |
+|:-----|-------:|---------:|------:|----------:|-----------:|
+| geog | 86.592 |    3.051 | 2.148 |     0.008 |      0.003 |
+| ppop | 35.411 |    1.795 | 1.313 |     0.004 |      0.002 |
+
+As the table shows, parcel population has lower overall error across all
+indicators.
+
+``` r
+dhra = merge(dhra, rgeog[, .(id = target_id, geog_all = all)], all.x = T, by = 'id')
+
+dhra = merge(dhra, rppop[, .(id = target_id, ppop_all = all)], all.x = T, by = 'id')
+
+setDT(dhra)
+ghra = melt(dhra[, .(id, all, geog_all, ppop_all)], id.vars = c('id', 'all'))
+ghra[, dif := all - value]
+ghra[, variable := factor(variable, c('geog_all', 'ppop_all'), c('Geographic', 'Parcel Pop'))]
+ghra = merge(ghra, hra[, 'id'], by = 'id')
+ghra = st_as_sf(ghra)
+
+ggplot(ghra, aes(fill = dif)) + 
+  geom_sf() + 
+  facet_wrap(~variable) +
+  scale_fill_viridis_c() +
+  theme_bw() +
+  ggtitle('Obs - Pred by crosswalk type', 'All deaths') +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank())
+```
+
+![](spatagg_validate_files/figure-commonmark/unnamed-chunk-15-1.png)
