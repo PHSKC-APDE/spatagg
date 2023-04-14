@@ -87,6 +87,7 @@ crosswalk = function(source, source_id, est, proportion = FALSE, se = NULL, by =
     source = source[, .(est = mean(value), se = sd(value)),  by = c('target_id', by)]
   }
   
+  data.table::setorder(source, 'target_id')
   data.table::setDF(source)
   
   return(source)

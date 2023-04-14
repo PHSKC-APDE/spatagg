@@ -18,6 +18,7 @@ be generated.
 
 ``` r
 # Set up libraries
+set.seed(1)
 library('data.table')
 library('sf')
 library('dplyr', quietly = TRUE)
@@ -213,7 +214,7 @@ with other and not entirely randomly distributed throughout space.
 
 ``` r
 # sample some points to represent parcels
-parcel = st_sample(boundary, 3000)
+parcel = st_sample(boundary, 5000)
 parcel = st_sf(parcel_id = seq_along(parcel), geom = parcel)
 
 # assign parcel id to pop based on proximity
@@ -235,8 +236,8 @@ setnames(tgt_pp, c('tgtid', 'ppbin', 'ppnum'))
 
 ### Compare results
 
-Unsurprisingly, the higher the spatial resolution of the population data
-the more accurate (in this case, by a lower RMSE) the resulting
+Generally, the higher the spatial resolution of the population data the
+more accurate (in this case, by a lower RMSE) the resulting
 aggregated/crosswalked estimates are to the “truth.”
 
 ``` r
@@ -256,10 +257,10 @@ chk = rbind(
 knitr::kable(chk)
 ```
 
-| Var |     Pop |    Geog | Parcel Pop |
-|:----|--------:|--------:|-----------:|
-| bin |   0.012 |   0.076 |      0.022 |
-| num | 431.103 | 731.669 |   1150.919 |
+| Var |     Pop |     Geog | Parcel Pop |
+|:----|--------:|---------:|-----------:|
+| bin |   0.008 |    0.089 |      0.013 |
+| num | 482.416 | 1131.473 |    696.832 |
 
 ``` r
 # maps showing target_id specific difference
@@ -289,3 +290,101 @@ ggplot(filter(blah,variable == 'num_dif')) +
 ```
 
 ![](spatagg_validate_files/figure-commonmark/unnamed-chunk-10-2.png)
+
+### Sensitivity testing the parcel approximation approach
+
+This set of sensitivity analyses (20 rounds of parcel population
+creation for a varying number of parcels) examines how changes in the
+number of parcels (or population clusters) changes the error in this
+example relative to the geographic overlap approach. For binary type
+variables, it seems (at least based on these tests) that using parcel
+population approach is nearly always better while for numeric variables
+(e.g. counts) a certain point density is required.
+
+``` r
+# A function to generate parcel population results
+gen_parcels = function(boundary, pop, src, tgt, N){
+  # sample some points to represent parcels
+  parcel = st_sample(boundary, N)
+  parcel = st_sf(parcel_id = seq_along(parcel), geom = parcel)
+  
+  # assign parcel id to pop based on proximity
+  dist = st_distance(pop, parcel)
+  dist = apply(dist, 1, which.min)
+  pop$parcel_id = parcel$parcel_id[dist]
+  parcelpop = pop %>% group_by(parcel_id) %>% 
+    st_drop_geometry() %>% 
+    summarise(pop = sum(pop))
+  parcelpop = merge(parcel, parcelpop, by = 'parcel_id')
+  
+  # Create xwalk
+  s2t_ppop = create_xwalk(source = src, target = tgt, 
+                          source_id = 'srcid', target_id = 'tgtid',
+                          method = 'point pop', point_pop = parcelpop)
+  tgt_ppb = crosswalk(src, 'srcid', 'bin', 
+                      proportion = T, xwalk_df = s2t_ppop, rescale = T)
+  
+  tgt_ppn = crosswalk(src, 'srcid', 'num', 
+                      proportion = F, xwalk_df = s2t_ppop, rescale = F)
+  tgt_pp = merge(tgt_ppb, tgt_ppn, all.x = T, by = 'target_id')
+  setDT(tgt_pp)
+  setnames(tgt_pp, c('tgtid', 'ppbin', 'ppnum'))
+  
+  tgt_pp = merge(tgt_pp, tgt[, c('tgtid', 'bin', 'num'), drop = T], by = 'tgtid')
+  tgt_pp[, .(err_bin = rmse(bin, ppbin), err_num = rmse(num, ppnum))]
+}
+
+tgrid = CJ(iter = 1:20, size = c(100, 1000, 2000, 3000, 5000, 7000))
+tgrid[, id := .I]
+tgrid = split(tgrid, by = 'id')
+ptests = lapply(tgrid, function(tg){
+  
+  r = gen_parcels(boundary, pop, src, tgt, N = tg$size)
+  r = cbind(r, tg)
+  return(r)
+  
+})
+
+ptests = rbindlist(ptests)
+
+ptests_err = rbind(ptests[, .(
+  m = mean(err_bin),
+  l = quantile(err_bin, .025),
+  u = quantile(err_bin, .975),
+  var = 'bin'
+), size],
+ptests[, .(
+  m = mean(err_num),
+  l = quantile(err_num, .025),
+  u = quantile(err_num, .975),
+  var = 'num'
+), by = .(size)])
+
+g = ggplot(ptests_err[var == 'num'], aes(x = size, y = m, ymin =l, ymax = u)) + 
+  geom_line() +
+  geom_ribbon(alpha = .4) +
+  theme_bw() +
+  ggtitle('Error of num by number of parcels') +
+  ylab('RMSE') +
+  geom_hline(data = chk[Var == 'num', .(Geog)], aes(yintercept = Geog), color = 'purple')
+g
+```
+
+![](spatagg_validate_files/figure-commonmark/parcel-approx-1.png)
+
+``` r
+g = ggplot(ptests_err[var == 'bin'], aes(x = size, y = m, ymin =l, ymax = u)) + 
+  geom_line() +
+  geom_ribbon(alpha = .4) +
+  theme_bw() +
+  ggtitle('Error of bin by number of parcels') +
+  ylab('RMSE')+
+  geom_hline(data = chk[Var == 'bin', .(Geog)], aes(yintercept = Geog), color = 'purple')
+g
+```
+
+![](spatagg_validate_files/figure-commonmark/parcel-approx-2.png)
+
+## A ‘real’ data example
+
+coming soon

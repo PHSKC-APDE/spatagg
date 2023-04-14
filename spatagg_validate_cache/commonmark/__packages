@@ -1,0 +1,12 @@
+base
+methods
+datasets
+utils
+grDevices
+graphics
+stats
+data.table
+sf
+dplyr
+ggplot2
+spatagg

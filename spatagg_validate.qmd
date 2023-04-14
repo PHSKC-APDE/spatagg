@@ -21,6 +21,7 @@ knitr::opts_chunk$set(message=FALSE, warning=FALSE )
 ```{r}
 
 # Set up libraries
+set.seed(1)
 library('data.table')
 library('sf')
 library('dplyr', quietly = TRUE)
@@ -67,7 +68,7 @@ plot(tgt[,'tgtid'])
 
 ### Population and variables
 
-The location of "people are randomly generated within the boundary. These "people" are randomly assigned a binary variable value and a numeric (count) variable. The src polygon is used to inject some spatial patterning.
+The location of "people are randomly generated within the boundary. These"people" are randomly assigned a binary variable value and a numeric (count) variable. The src polygon is used to inject some spatial patterning.
 
 ```{r}
 # Bring in source information to give it some spatial patterning
@@ -166,7 +167,7 @@ Usually, point population locations and values will be a point based (e.g. centr
 
 ```{r}
 # sample some points to represent parcels
-parcel = st_sample(boundary, 3000)
+parcel = st_sample(boundary, 5000)
 parcel = st_sf(parcel_id = seq_along(parcel), geom = parcel)
 
 # assign parcel id to pop based on proximity
@@ -191,7 +192,7 @@ setnames(tgt_pp, c('tgtid', 'ppbin', 'ppnum'))
 
 ### Compare results
 
-Unsurprisingly, the higher the spatial resolution of the population data the more accurate (in this case, by a lower RMSE) the resulting aggregated/crosswalked estimates are to the "truth."
+Generally, the higher the spatial resolution of the population data the more accurate (in this case, by a lower RMSE) the resulting aggregated/crosswalked estimates are to the "truth."
 
 ```{r}
 res = tgt %>% st_drop_geometry()
@@ -231,3 +232,89 @@ ggplot(filter(blah,variable == 'num_dif')) +
   ggtitle('Obs - Pred, count variable')
 
 ```
+
+### Sensitivity testing the parcel approximation approach
+
+This set of sensitivity analyses (20 rounds of parcel population creation for a varying number of parcels) examines how changes in the number of parcels (or population clusters) changes the error in this example relative to the geographic overlap approach. For binary type variables, it seems (at least based on these tests) that using parcel population approach is nearly always better while for numeric variables (e.g. counts) a certain point density is required.
+
+```{r parcel-approx, cache = T}
+# A function to generate parcel population results
+gen_parcels = function(boundary, pop, src, tgt, N){
+  # sample some points to represent parcels
+  parcel = st_sample(boundary, N)
+  parcel = st_sf(parcel_id = seq_along(parcel), geom = parcel)
+  
+  # assign parcel id to pop based on proximity
+  dist = st_distance(pop, parcel)
+  dist = apply(dist, 1, which.min)
+  pop$parcel_id = parcel$parcel_id[dist]
+  parcelpop = pop %>% group_by(parcel_id) %>% 
+    st_drop_geometry() %>% 
+    summarise(pop = sum(pop))
+  parcelpop = merge(parcel, parcelpop, by = 'parcel_id')
+  
+  # Create xwalk
+  s2t_ppop = create_xwalk(source = src, target = tgt, 
+                          source_id = 'srcid', target_id = 'tgtid',
+                          method = 'point pop', point_pop = parcelpop)
+  tgt_ppb = crosswalk(src, 'srcid', 'bin', 
+                      proportion = T, xwalk_df = s2t_ppop, rescale = T)
+  
+  tgt_ppn = crosswalk(src, 'srcid', 'num', 
+                      proportion = F, xwalk_df = s2t_ppop, rescale = F)
+  tgt_pp = merge(tgt_ppb, tgt_ppn, all.x = T, by = 'target_id')
+  setDT(tgt_pp)
+  setnames(tgt_pp, c('tgtid', 'ppbin', 'ppnum'))
+  
+  tgt_pp = merge(tgt_pp, tgt[, c('tgtid', 'bin', 'num'), drop = T], by = 'tgtid')
+  tgt_pp[, .(err_bin = rmse(bin, ppbin), err_num = rmse(num, ppnum))]
+}
+
+tgrid = CJ(iter = 1:20, size = c(100, 1000, 2000, 3000, 5000, 7000))
+tgrid[, id := .I]
+tgrid = split(tgrid, by = 'id')
+ptests = lapply(tgrid, function(tg){
+  
+  r = gen_parcels(boundary, pop, src, tgt, N = tg$size)
+  r = cbind(r, tg)
+  return(r)
+  
+})
+
+ptests = rbindlist(ptests)
+
+ptests_err = rbind(ptests[, .(
+  m = mean(err_bin),
+  l = quantile(err_bin, .025),
+  u = quantile(err_bin, .975),
+  var = 'bin'
+), size],
+ptests[, .(
+  m = mean(err_num),
+  l = quantile(err_num, .025),
+  u = quantile(err_num, .975),
+  var = 'num'
+), by = .(size)])
+
+g = ggplot(ptests_err[var == 'num'], aes(x = size, y = m, ymin =l, ymax = u)) + 
+  geom_line() +
+  geom_ribbon(alpha = .4) +
+  theme_bw() +
+  ggtitle('Error of num by number of parcels') +
+  ylab('RMSE') +
+  geom_hline(data = chk[Var == 'num', .(Geog)], aes(yintercept = Geog), color = 'purple')
+g
+
+g = ggplot(ptests_err[var == 'bin'], aes(x = size, y = m, ymin =l, ymax = u)) + 
+  geom_line() +
+  geom_ribbon(alpha = .4) +
+  theme_bw() +
+  ggtitle('Error of bin by number of parcels') +
+  ylab('RMSE')+
+  geom_hline(data = chk[Var == 'bin', .(Geog)], aes(yintercept = Geog), color = 'purple')
+g
+```
+
+## A 'real' data example
+
+coming soon
