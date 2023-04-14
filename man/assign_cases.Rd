@@ -11,7 +11,8 @@ assign_cases(source, source_id, xwalk_df)
 
 \item{source_id}{character. Column of ids that link source to xwalk_df}
 
-\item{xwalk_df}{data.frame. Must have the following columns: source_id, target_id, s2t_fraction, isect_amount, tcoverage_amount, target_amount. Use create_xwalk to generate the crosswalk.}
+\item{xwalk_df}{data.frame. Must have the following columns: source_id,
+target_id, s2t_fraction. Use create_xwalk to generate the crosswalk.}
 }
 \value{
 a vector of values representing the \code{target_id} to assign the row
