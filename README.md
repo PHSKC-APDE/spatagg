@@ -1,6 +1,26 @@
 README
 ================
 
+- <a href="#spatagg" id="toc-spatagg">spatagg</a>
+- <a href="#things-to-be-aware-of" id="toc-things-to-be-aware-of">THINGS
+  TO BE AWARE OF</a>
+- <a href="#other-fun-doodads" id="toc-other-fun-doodads">Other fun
+  doodads</a>
+- <a href="#installation" id="toc-installation">Installation</a>
+- <a href="#examples" id="toc-examples">Examples</a>
+  - <a href="#construct-test-geographies"
+    id="toc-construct-test-geographies">Construct test geographies</a>
+  - <a href="#geographic-overlap-aggregation"
+    id="toc-geographic-overlap-aggregation">Geographic Overlap
+    Aggregation</a>
+  - <a href="#point-population-overlap"
+    id="toc-point-population-overlap">Point population overlap</a>
+  - <a href="#propagating-uncertainty"
+    id="toc-propagating-uncertainty">Propagating uncertainty</a>
+  - <a href="#when-source-doesnt-totally-cover-target"
+    id="toc-when-source-doesnt-totally-cover-target">When source doesn’t
+    totally cover target</a>
+
 ## spatagg
 
 spatagg provides functions for the aggregation of estimates between
@@ -16,7 +36,32 @@ Two main approaches are provided:
 
 2.  Point weighted population: Instead of using geographic overlap as
     the weights for aggregation (e.g. #1), the population overlap is
-    used instead.
+    used instead. THIS IS THE ONE YOU USUALLY WANT TO USE!
+
+## THINGS TO BE AWARE OF
+
+1.  BEWARE OF EDGE EFFECTS, especially when using the point pop option.
+    Things like ZIP codes cross county boundaries. It is usually best to
+    double check those and/or mix and match geographic or point pop
+    crosswalks. For ZIP codes specifically, I think this generally means
+    all estimates in ZIPs that cross the boundary will be fully assigned
+    to intersecting targets within King County. This may or may not be
+    what you want.
+2.  BEWARE OF WATER, especially when using geographic overlap. In
+    general, make sure source and target have similar ideas of what
+    consists of land
+3.  THE `proportion` ARGUMENT IN CROSSWALK IS NOT JUST FOR proportion
+    data. Basically, if your data is not a count, set `proportion = T`.
+4.  Don’t forget the rescale option exists.
+
+## Other fun doodads
+
+1.  The function `assign_cases` can take a set of crosswalk instructions
+    and probabilistically apply it to microdata.
+2.  The function `reduce_overlaps` can be used to fix up geographies (in
+    some cases) so that `check_internal_consistency` quiets down.
+3.  Review the [validation vignette](spatagg_validate.md) to see how
+    geographic overlap compares to population based ones
 
 ## Installation
 
@@ -56,7 +101,7 @@ library('spatagg')
 library('sf', quietly = TRUE)
 ```
 
-    Linking to GEOS 3.9.1, GDAL 3.4.3, PROJ 7.2.1; sf_use_s2() is TRUE
+    Linking to GEOS 3.9.3, GDAL 3.5.2, PROJ 8.2.1; sf_use_s2() is TRUE
 
 ``` r
 library('ggplot2')
@@ -114,7 +159,7 @@ tp2 = sf::st_sf(tp2, sf_column_name = 'geom')
             'Source = black, target = purple')
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-2-1.png)
+![](README_files/figure-commonmark/unnamed-chunk-2-1.png)
 
 ``` r
   ggplot() + geom_sf(data = source_poly, fill = NA) +
@@ -126,7 +171,7 @@ tp2 = sf::st_sf(tp2, sf_column_name = 'geom')
            'Source = black, target = purple')
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-2-2.png)
+![](README_files/figure-commonmark/unnamed-chunk-2-2.png)
 
 ### Geographic Overlap Aggregation
 
@@ -174,28 +219,28 @@ hey, its fun to confirm).
 
 The `crosswalk` function has the following arguments:
 
--   `source`: the polygons with estimates to be
-    converted/aggregated/translated to the target polygon(s) from the
-    `create_xwalk` step
+- `source`: the polygons with estimates to be
+  converted/aggregated/translated to the target polygon(s) from the
+  `create_xwalk` step
 
--   `source_id`: Column name of the id column for `source`
+- `source_id`: Column name of the id column for `source`
 
--   `est`: column name of the estimate to be converted
+- `est`: column name of the estimate to be converted
 
--   `proportion`: Logical flag denoting whether `est` represents
-    proportion data
+- `proportion`: Logical flag denoting whether `est` represents
+  proportion data
 
--   `se`: An optional name of the column containing the standard error
-    of `est`
+- `se`: An optional name of the column containing the standard error of
+  `est`
 
--   `by`: An optional vector of column names to repeat the translation
-    by. See `?crosswalk` for more details
+- `by`: An optional vector of column names to repeat the translation by.
+  See `?crosswalk` for more details
 
--   `xwalk_df`: The result of `create_xwalk` step
+- `xwalk_df`: The result of `create_xwalk` step
 
--   `rescale`: Logical flag to determine whether the
-    conversion/aggregation weights should be scaled to approximate full
-    coverage of target by `source`
+- `rescale`: Logical flag to determine whether the
+  conversion/aggregation weights should be scaled to approximate full
+  coverage of target by `source`
 
 ``` r
 # for counts
@@ -334,7 +379,7 @@ ggplot() + geom_sf(data = source_poly, fill = NA) +
     ggtitle('Population points')
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-8-1.png)
+![](README_files/figure-commonmark/unnamed-chunk-8-1.png)
 
 #### Create the point population crosswalk
 
@@ -444,7 +489,7 @@ ggplot() + geom_sf(data = sp, fill = NA, color = 'black', size = 1.1) +
          'Source = black, target = purple')
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-12-1.png)
+![](README_files/figure-commonmark/unnamed-chunk-12-1.png)
 
 When scaling counts, the `rescale` argument (set to `TRUE`) can adjust
 the counts upwards to approximate full overlap.

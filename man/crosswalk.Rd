@@ -22,7 +22,7 @@ crosswalk(
 
 \item{est}{character. Column in \code{source} containing the estimates for transfer}
 
-\item{proportion}{logical. Does \code{est} represent proportion (0 - 1) data?}
+\item{proportion}{logical. Does \code{est} represent proportion (0 - 1) data OR other non-count data. Basically, set to TRUE unless you have count data.}
 
 \item{se}{character (optional). The standard error of the estimate in \code{source}}
 
@@ -41,6 +41,7 @@ By computations happen all at once-- that is, if c('race','sex') is passed, the 
 When rescale is TRUE, and tcoverage_amount != target_amount for a given source -> target pair
 the crosswalk weights will be scaled up by target_amount/tcoverage_amount
 
-Crosswalk weights for \code{proportion = FALSE} are \code{s2t_fraction} optionally scaled via rescale.
+Crosswalk weights for \code{proportion = FALSE} are \code{s2t_fraction} optionally scaled via rescale. That is, source gives up \code{s2t_fraction} amount of est to target.
 For \code{proportion = TRUE}, the crosswalk weights are \code{isect_amount/target_amount}. The rescale option is irrelevant.
+That is, source's contribution to target's final value is based on its relative share of overlap
 }

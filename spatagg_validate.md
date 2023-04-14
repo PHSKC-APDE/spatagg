@@ -1,6 +1,35 @@
 Evaluating Spatagg Methods
 ================
 
+- <a href="#intro" id="toc-intro">Intro</a>
+- <a href="#set-up" id="toc-set-up">Set Up</a>
+  - <a href="#boundary" id="toc-boundary">Boundary</a>
+  - <a href="#source-and-target" id="toc-source-and-target">Source and
+    target</a>
+  - <a href="#population-and-variables"
+    id="toc-population-and-variables">Population and variables</a>
+  - <a href="#aggregate-to-source" id="toc-aggregate-to-source">Aggregate to
+    source</a>
+  - <a href="#aggregate-to-target" id="toc-aggregate-to-target">Aggregate to
+    target</a>
+- <a href="#compute-and-apply-crosswalks"
+  id="toc-compute-and-apply-crosswalks">Compute and apply crosswalks</a>
+  - <a href="#geographic-crosswalks"
+    id="toc-geographic-crosswalks">Geographic Crosswalks</a>
+  - <a href="#population-based-crosswalk"
+    id="toc-population-based-crosswalk">Population based crosswalk</a>
+  - <a href="#approximate-parcel-population"
+    id="toc-approximate-parcel-population">Approximate parcel population</a>
+  - <a href="#compare-results" id="toc-compare-results">Compare results</a>
+  - <a href="#sensitivity-testing-the-parcel-approximation-approach"
+    id="toc-sensitivity-testing-the-parcel-approximation-approach">Sensitivity
+    testing the parcel approximation approach</a>
+- <a href="#a-real-data-example" id="toc-a-real-data-example">A ‘real’
+  data example</a>
+  - <a href="#the-data" id="toc-the-data">The data</a>
+  - <a href="#the-truth" id="toc-the-truth">The truth</a>
+  - <a href="#crosswalks" id="toc-crosswalks">Crosswalks</a>
+
 ## Intro
 
 The spatagg package provides several functions to facilitate the
@@ -187,8 +216,9 @@ count and proportion data discussed above apply here as well.
 Note: there is no reason to use the spatagg package if your data are
 available at the point level. This example exists as an idealized case.
 More generally, you are going to have some sort of areal population
-expressed as points (see below). That is really what the ‘point pop’
-method is for.
+(e.g. the number of people living at a parcel) expressed as points (in
+reality, most parcels/buildings/whatever are tiny polygons). That is
+really what the ‘point pop’ method is for.
 
 ``` r
 pop$pop = 1
@@ -255,7 +285,7 @@ chk = rbind(
   res[, .(Var = 'bin', Pop = rmse(bin, pbin), Geog = rmse(bin, gbin), `Parcel Pop` = rmse(bin, ppbin))],
   res[, .(Var = 'num', Pop = rmse(num, pnum), Geog = rmse(num, gnum), `Parcel Pop` = rmse(num, ppnum))]
   )
-knitr::kable(chk)
+knitr::kable(chk, label = 'RMSE by aggregation approach')
 ```
 
 | Var |     Pop |     Geog | Parcel Pop |
@@ -386,6 +416,8 @@ g
 
 ![](spatagg_validate_files/figure-commonmark/parcel-approx-2.png)
 
+The purple line is the estimate using the “geographic overlap” method.
+
 ## A ‘real’ data example
 
 Our real data examples will be examining the percent of deaths between
@@ -487,7 +519,7 @@ compare_to_truth = function(obs, pred){
 cgeog = compare_to_truth(dhra, rgeog)
 cppop = compare_to_truth(dhra, rppop)
 
-knitr::kable(rbind(cgeog, cppop))
+knitr::kable(rbind(cgeog, cppop), label = 'RMSE by variable and approach')
 ```
 
 | type |    all | diabetes | drugs | pdiabetes | pdiabetes2 |
@@ -522,3 +554,8 @@ ggplot(ghra, aes(fill = dif)) +
 ```
 
 ![](spatagg_validate_files/figure-commonmark/unnamed-chunk-15-1.png)
+
+This graph shows the difference in the observed number of deaths
+relative to the “predicted” number of deaths created via the two
+crosswalking approaches. In general, the parcel/point population
+approach has less “error” than the geographic approach.

@@ -2,6 +2,7 @@
 title: "README"
 format: gfm
 editor: visual
+toc: TRUE
 ---
 
 ## spatagg
@@ -12,7 +13,20 @@ Two main approaches are provided:
 
 1.  Geographic/Fractional Approach: A target geography value is constructed from overlapping source geographies based on fractional overlap. If target T is covered 60/40 by geographies A and B, then: $T = .6A + .4B$
 
-2.  Point weighted population: Instead of using geographic overlap as the weights for aggregation (e.g. #1), the population overlap is used instead.
+2.  Point weighted population: Instead of using geographic overlap as the weights for aggregation (e.g. #1), the population overlap is used instead. THIS IS THE ONE YOU USUALLY WANT TO USE!
+
+## THINGS TO BE AWARE OF
+
+1.  BEWARE OF EDGE EFFECTS, especially when using the point pop option. Things like ZIP codes cross county boundaries. It is usually best to double check those and/or mix and match geographic or point pop crosswalks. For ZIP codes specifically, I think this generally means all estimates in ZIPs that cross the boundary will be fully assigned to intersecting targets within King County. This may or may not be what you want.
+2.  BEWARE OF WATER, especially when using geographic overlap. In general, make sure source and target have similar ideas of what consists of land
+3.  THE `proportion` ARGUMENT IN CROSSWALK IS NOT JUST FOR proportion data. Basically, if your data is not a count, set `proportion = T`.
+4.  Don't forget the rescale option exists.
+
+## Other fun doodads
+
+1.  The function `assign_cases` can take a set of crosswalk instructions and probabilistically apply it to microdata.
+2.  The function `reduce_overlaps` can be used to fix up geographies (in some cases) so that `check_internal_consistency` quiets down.
+3.  Review the [validation vignette](spatagg_validate.md) to see how geographic overlap compares to population based ones
 
 ## Installation
 

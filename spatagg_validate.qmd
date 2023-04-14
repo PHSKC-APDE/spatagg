@@ -2,6 +2,7 @@
 title: "Evaluating Spatagg Methods"
 format: gfm
 editor: visual
+toc: TRUE
 ---
 
 ## Intro
@@ -69,7 +70,7 @@ plot(tgt[,'tgtid'])
 
 ### Population and variables
 
-The location of "people are randomly generated within the boundary. These"people" are randomly assigned a binary variable value and a numeric (count) variable. The src polygon is used to inject some spatial patterning.
+The location of "people are randomly generated within the boundary. These "people" are randomly assigned a binary variable value and a numeric (count) variable. The src polygon is used to inject some spatial patterning.
 
 ```{r}
 # Bring in source information to give it some spatial patterning
@@ -147,7 +148,7 @@ setnames(tgt_g, c('tgtid', 'gbin', 'gnum'))
 
 This set of crosswalk weights are generated based on the relative overlap of population between source and target. The caveats between count and proportion data discussed above apply here as well.
 
-Note: there is no reason to use the spatagg package if your data are available at the point level. This example exists as an idealized case. More generally, you are going to have some sort of areal population expressed as points (see below). That is really what the 'point pop' method is for.
+Note: there is no reason to use the spatagg package if your data are available at the point level. This example exists as an idealized case. More generally, you are going to have some sort of areal population (e.g. the number of people living at a parcel) expressed as points (in reality, most parcels/buildings/whatever are tiny polygons). That is really what the 'point pop' method is for.
 
 ```{r}
 pop$pop = 1
@@ -208,7 +209,7 @@ chk = rbind(
   res[, .(Var = 'bin', Pop = rmse(bin, pbin), Geog = rmse(bin, gbin), `Parcel Pop` = rmse(bin, ppbin))],
   res[, .(Var = 'num', Pop = rmse(num, pnum), Geog = rmse(num, gnum), `Parcel Pop` = rmse(num, ppnum))]
   )
-knitr::kable(chk)
+knitr::kable(chk, label = 'RMSE by aggregation approach')
 
 # maps showing target_id specific difference
 blah = melt(res, id.vars = c('tgtid', 'bin', 'num'), 
@@ -314,6 +315,8 @@ g = ggplot(ptests_err[var == 'bin'], aes(x = size, y = m, ymin =l, ymax = u)) +
   geom_hline(data = chk[Var == 'bin', .(Geog)], aes(yintercept = Geog), color = 'purple')
 g
 ```
+
+The purple line is the estimate using the "geographic overlap" method.
 
 ## A 'real' data example
 
@@ -462,7 +465,7 @@ compare_to_truth = function(obs, pred){
 cgeog = compare_to_truth(dhra, rgeog)
 cppop = compare_to_truth(dhra, rppop)
 
-knitr::kable(rbind(cgeog, cppop))
+knitr::kable(rbind(cgeog, cppop), label = 'RMSE by variable and approach')
 ```
 
 As the table shows, parcel population has lower overall error across all indicators.
@@ -491,3 +494,5 @@ ggplot(ghra, aes(fill = dif)) +
         panel.grid = element_blank())
 
 ```
+
+This graph shows the difference in the observed number of deaths relative to the "predicted" number of deaths created via the two crosswalking approaches. In general, the parcel/point population approach has less "error" than the geographic approach.

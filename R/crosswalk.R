@@ -3,7 +3,7 @@
 #' @param source data.frame containing estimates to transfer to \code{target}
 #' @param source_id character. Column of ids that link source to xwalk_df
 #' @param est character. Column in \code{source} containing the estimates for transfer
-#' @param proportion logical. Does `est` represent proportion (0 - 1) data?
+#' @param proportion logical. Does `est` represent proportion (0 - 1) data OR other non-count data. Basically, set to TRUE unless you have count data.
 #' @param se character (optional). The standard error of the estimate in \code{source}
 #' @param by character (optional). Vector of column names to compute by. A given id must be unique within the combination of by.
 #' @param xwalk_df data.frame. Must have the following columns: source_id, target_id, s2t_fraction, isect_amount, tcoverage_amount, target_amount. Use create_xwalk to generate the crosswalk.
@@ -16,8 +16,9 @@
 #' When rescale is TRUE, and tcoverage_amount != target_amount for a given source -> target pair
 #' the crosswalk weights will be scaled up by target_amount/tcoverage_amount
 #' 
-#' Crosswalk weights for `proportion = FALSE` are `s2t_fraction` optionally scaled via rescale.
+#' Crosswalk weights for `proportion = FALSE` are `s2t_fraction` optionally scaled via rescale. That is, source gives up `s2t_fraction` amount of est to target.
 #' For `proportion = TRUE`, the crosswalk weights are `isect_amount/target_amount`. The rescale option is irrelevant.
+#' That is, source's contribution to target's final value is based on its relative share of overlap
 #' 
 #' @importFrom stats rnorm sd
 #' @export
