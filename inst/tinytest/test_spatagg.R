@@ -238,4 +238,25 @@ expect_equal(round(t12.chk,2), round(t12.1$se,2))
 expect_equal(round(t12.3$est), t12.4$est)
 expect_equal(round(t12.1$est,2), round(t12.2$est,2))
 
+# test assign cases
+# ggplot() + geom_sf(data = ac_tgt, color = 'purple') + geom_sf(data =ac_src, fill = NA) + geom_sf_label(data = ac_src, aes(label = id)) 
+ac_src = source_poly[st_intersects(source_poly, st_union(target_poly[c(1,2,6,7),]), sparse = F)[,1],]
+ac_tgt = target_poly[c(1,2,6,7),]
+ac_src = st_intersection(ac_src, st_union(ac_tgt))
+ac_idat = rbindlist(lapply(unique(ac_src$id), function(x) data.table(src = x, pt = seq_len(100))))
+ac_cw = create_xwalk(ac_src, ac_tgt, 'id', 'id')
+ac = assign_cases(ac_idat,'src', ac_cw)
+ac_idat[, target_id := ac]
+# src 32 should be all in tgt 6
+expect_equal(100,nrow(ac_idat[target_id == 6 & src == 32]))
 
+# src 13 should be about 50/50 1/2
+t13.1 = ac_idat[src == 13, .N, target_id]
+expect_true(t13.1[,all(N > 40 & N < 60)])
+
+# src 23 should be split into a few chunks
+t13.2 = ac_idat[src == 23, .N, target_id]
+expect_equal(4, nrow(t13.2))
+expect_equal(25, mean(t13.2[, N]))
+
+                      
