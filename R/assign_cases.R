@@ -18,6 +18,7 @@
 #' 
 assign_cases = function(source, source_id, xwalk_df){
 
+  stopifnot(source_id %in% names(source))
   ids = data.table::data.table(sid = source[[source_id]])
   
   xw = data.table::data.table(xwalk_df[, c('source_id', 'target_id', 's2t_fraction')])
@@ -38,12 +39,13 @@ assign_cases = function(source, source_id, xwalk_df){
       return(sample(x,size,replace, prob))
     }
   }
+
   
   # select a single target per common source id
   for(joint_id in intersect(ids$sid, xw$source_id)){
-    ids[sid == joint_id, target_id := ssample(x = xw[source_id == joint_id][['target_id']], 
-                                              size = nrow(ids[sid == joint_id]), 
-                                              replace = T, 
+    ids[sid == joint_id, target_id := ssample(x = xw[source_id == joint_id][['target_id']],
+                                              size = nrow(ids[sid == joint_id]),
+                                              replace = T,
                                               prob = xw[source_id == joint_id][['s2t_fraction']])]
   }
   
