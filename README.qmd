@@ -17,15 +17,15 @@ Two main approaches are provided:
 
 ## THINGS TO BE AWARE OF
 
-1.  BEWARE OF EDGE EFFECTS, especially when using the point pop option. Things like ZIP codes cross county boundaries. It is usually best to double check those and/or mix and match geographic or point pop crosswalks. For ZIP codes specifically, I think this generally means all estimates in ZIPs that cross the boundary will be fully assigned to intersecting targets within King County. This may or may not be what you want.
-2.  BEWARE OF WATER, especially when using geographic overlap. In general, make sure source and target have similar ideas of what consists of land
-3.  THE `proportion` ARGUMENT IN CROSSWALK IS NOT JUST FOR proportion data. Basically, if your data is not a count, set `proportion = T`.
-4.  Don't forget the rescale option exists.
+1.  BEWARE OF EDGE EFFECTS, especially when using the point pop option with the parcel population from the kcparcelpop package. Things like ZIP codes cross county boundaries. For ZIP codes specifically, I think this generally means all estimates in ZIPs that cross the boundary will be fully assigned to intersecting targets within King County. This may or may not be what you want. I encourage folks to double check the crosswalk values/weights/xwalk_df when using geographies that are outside King County and you are using the parcel pop option.
+2.  BEWARE OF WATER, especially when using geographic overlap. In general, make sure source and target have similar ideas of what land is.
+3.  THE `proportion` ARGUMENT IN CROSSWALK IS NOT JUST FOR proportion data. Basically, if your data is not count data, set `proportion = T`. Or at a minimum, try both and see which makes sense. The validation vignette describes this quandary in greater detail (and so does `?crosswalk`).
+4.  Don't forget the rescale option exists. Review `?crosswalk` to figure out if you want it toggled or not.
 
 ## Other fun doodads
 
-1.  The function `assign_cases` can take a set of crosswalk instructions and probabilistically apply it to microdata.
-2.  The function `reduce_overlaps` can be used to fix up geographies (in some cases) so that `check_internal_consistency` quiets down.
+1.  The function `assign_cases` can take a set of crosswalk instructions and probabilistically apply it to microdata. This is a relatively new function, although it is tested. That said, best to manually review its results for sensibility.
+2.  The function `reduce_overlaps` can be used to fix up geographies (in some cases) so that `check_internal_consistency` quiets down. This function does slightly weird things to the output geography, so don't use it for mapping or anything. If you encounter a geography that you got from the APDE shapefile repository that fails a `check_internal_consistency` test, please let Daniel Casey know.
 3.  Review the [validation vignette](spatagg_validate.md) to see how geographic overlap compares to population based ones
 
 ## Installation
