@@ -70,7 +70,7 @@ plot(tgt[,'tgtid'])
 
 ### Population and variables
 
-The location of "people are randomly generated within the boundary. These "people" are randomly assigned a binary variable value and a numeric (count) variable. The src polygon is used to inject some spatial patterning.
+The location of "people are randomly generated within the boundary. These"people" are randomly assigned a binary variable value and a numeric (count) variable. The src polygon is used to inject some spatial patterning.
 
 ```{r}
 # Bring in source information to give it some spatial patterning
