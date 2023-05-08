@@ -77,9 +77,6 @@ Two main approaches are provided:
 
 ## Installation
 
-For now, you will need to have a github PAT (or similar) with
-permissions to access PHSKC-APDE private repos.
-
 ``` r
 # You will need the remotes package
 remotes::install_github('https://github.com/PHSKC-APDE/spatagg')
