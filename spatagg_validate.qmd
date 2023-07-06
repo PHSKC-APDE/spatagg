@@ -320,7 +320,7 @@ The purple line is the estimate using the "geographic overlap" method.
 
 ## A 'real' data example
 
-Our real data examples will be examining the percent of deaths between 2018 and 2020 that were due to diabetes and the count of deaths due all drugs during that period. The source geography will be tracts and the target geography will be HRAs. Records that are not geocoded within King County are omitted from the analysis.
+Our real data examples will be examining the percent of deaths between 2018 and 2020 that were due to diabetes and the count of deaths due to all drugs during that period. The source geography will be tracts and the target geography will be HRAs. Records that are not geocoded within King County are omitted from the analysis.
 
 ```{r, include=FALSE}
 library('DBI')

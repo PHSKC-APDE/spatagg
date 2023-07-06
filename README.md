@@ -20,6 +20,9 @@ README
   - <a href="#when-source-doesnt-totally-cover-target"
     id="toc-when-source-doesnt-totally-cover-target">When source doesn’t
     totally cover target</a>
+  - <a href="#assigning-microdata-to-areas-via-assign_cases"
+    id="toc-assigning-microdata-to-areas-via-assign_cases">Assigning
+    microdata to areas via assign_cases</a>
 
 ## spatagg
 
@@ -115,6 +118,7 @@ library('sf', quietly = TRUE)
 ``` r
 library('ggplot2')
 library('knitr', quietly = TRUE)
+library('data.table')
 
 set.seed(1)
 #create a test grid of bottom left points
@@ -148,6 +152,7 @@ source_poly = do.call(rbind, source_poly)
 source_poly$denom = round(runif(nrow(source_poly), 100,200))
 source_poly$numer = round(runif(nrow(source_poly), 50,100))
 source_poly$frac = with(source_poly, numer/denom)
+
 # total overlap target
 tp1 = data.frame(id = 1)
 tp1$geom = sf::st_sfc(sf::st_polygon(list(poly_points(0,0,2))))
@@ -558,3 +563,80 @@ print(r11)
 
 It should be noted that rescaling is not relevant when
 `proportion = TRUE`.
+
+### Assigning microdata to areas via assign_cases
+
+Whereas the `crosswalk` function translates estimates from one areal
+unit to another via the output of a `create_xwalk` call, `assign_cases`
+does the same for microdata. For commonly used datasets, `assign_cases`
+should be run centrally and have its results saved/attached to the
+microdata for reproducibility across analysts. `assign_cases` is best
+used for aggregation or translation between similarly sized geographies
+(e.g. ZIP to HRAs). While it can be used for dis-aggregation, do so with
+caution.
+
+aggregate()
+
+``` r
+# create some fake data
+fake_micro = data.frame(rid = 1:1000)
+fake_micro$id = sample(source_poly$id, nrow(fake_micro), replace = T)
+
+# two split down the middle polygons
+m1 = t(matrix(c(0,0,1.5,0,1.5,3,0,3,0,0), ncol = 5))
+m2 = m1
+m2[,1] <- m2[,1] + 1.5
+
+tp3 = sf::st_sfc(st_polygon(list(m1)), st_polygon(list(m2)))
+tp3 = st_sf(data.frame(id = 1:2, geom = tp3))
+
+
+ggplot() + geom_sf(data = source_poly, fill = NA) +
+    geom_sf(data = tp3, fill = NA, color = 'purple', size = 1.2) +
+    geom_sf_label(data = source_poly, aes(label = id)) +
+    #geom_sf(data = overlap_poly, fill = NA, color = 'purple') +
+    theme_classic() + 
+    ggtitle('Two target polyons with some down the middle splits',
+           'Source = black, target = purple')
+```
+
+![](README_files/figure-commonmark/unnamed-chunk-14-1.png)
+
+``` r
+# create the crosswalk instructions
+xw3 = create_xwalk(source_poly, tp3, 'id', 'id')
+
+# Use assign cases
+fake_micro$target_id = assign_cases(source = fake_micro, 'id', xw3)
+
+# summarise results (using data.table because I can' bother with base R)
+setDT(fake_micro)
+
+fake_micro = fake_micro[, .N, keyby = .(id, target_id)]
+fake_micro[, percent := round(100 *N/sum(N)), id]
+# should be about 50/50
+knitr::kable(fake_micro[id %in% c(2,5,8),])
+```
+
+|  id | target_id |   N | percent |
+|----:|----------:|----:|--------:|
+|   2 |         1 |  46 |      46 |
+|   2 |         2 |  53 |      54 |
+|   5 |         1 |  52 |      44 |
+|   5 |         2 |  66 |      56 |
+|   8 |         1 |  46 |      45 |
+|   8 |         2 |  56 |      55 |
+
+``` r
+# The rest should be 100%
+knitr::kable(fake_micro[!id %in% c(2,5,8),])
+```
+
+|  id | target_id |   N | percent |
+|----:|----------:|----:|--------:|
+|   1 |         1 | 111 |     100 |
+|   3 |         2 | 121 |     100 |
+|   4 |         1 | 110 |     100 |
+|   6 |         2 | 122 |     100 |
+|   7 |         1 | 117 |     100 |
+|   9 |         2 | 100 |     100 |
