@@ -575,8 +575,6 @@ used for aggregation or translation between similarly sized geographies
 (e.g. ZIP to HRAs). While it can be used for dis-aggregation, do so with
 caution.
 
-aggregate()
-
 ``` r
 # create some fake data
 fake_micro = data.frame(rid = 1:1000)
