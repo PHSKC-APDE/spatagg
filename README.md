@@ -568,12 +568,14 @@ It should be noted that rescaling is not relevant when
 
 Whereas the `crosswalk` function translates estimates from one areal
 unit to another via the output of a `create_xwalk` call, `assign_cases`
-does the same for microdata. For commonly used datasets, `assign_cases`
-should be run centrally and have its results saved/attached to the
-microdata for reproducibility across analysts. `assign_cases` is best
-used for aggregation or translation between similarly sized geographies
-(e.g. ZIP to HRAs). While it can be used for dis-aggregation, do so with
-caution.
+does the same for microdata by probabilistically assigning each case
+from a source geography to a target geography.
+
+For commonly used datasets, `assign_cases` should be run centrally and
+have its results saved/attached to the microdata for reproducibility
+across analysts. `assign_cases` is best used for aggregation or
+translation between similarly sized geographies (e.g. ZIP to HRAs).
+While it can be used for dis-aggregation, do so with caution.
 
 ``` r
 # create some fake data
