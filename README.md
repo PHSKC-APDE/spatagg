@@ -579,7 +579,7 @@ While it can be used for dis-aggregation, do so with caution.
 
 ``` r
 # create some fake data
-fake_micro = data.frame(rid = 1:1000)
+fake_micro = data.frame(rid = 1:10000)
 fake_micro$id = sample(source_poly$id, nrow(fake_micro), replace = T)
 
 # two split down the middle polygons
@@ -620,23 +620,23 @@ knitr::kable(fake_micro[id %in% c(2,5,8),])
 
 |  id | target_id |   N | percent |
 |----:|----------:|----:|--------:|
-|   2 |         1 |  46 |      46 |
-|   2 |         2 |  53 |      54 |
-|   5 |         1 |  52 |      44 |
-|   5 |         2 |  66 |      56 |
-|   8 |         1 |  46 |      45 |
-|   8 |         2 |  56 |      55 |
+|   2 |         1 | 556 |      51 |
+|   2 |         2 | 541 |      49 |
+|   5 |         1 | 524 |      49 |
+|   5 |         2 | 549 |      51 |
+|   8 |         1 | 518 |      48 |
+|   8 |         2 | 566 |      52 |
 
 ``` r
 # The rest should be 100%
 knitr::kable(fake_micro[!id %in% c(2,5,8),])
 ```
 
-|  id | target_id |   N | percent |
-|----:|----------:|----:|--------:|
-|   1 |         1 | 111 |     100 |
-|   3 |         2 | 121 |     100 |
-|   4 |         1 | 110 |     100 |
-|   6 |         2 | 122 |     100 |
-|   7 |         1 | 117 |     100 |
-|   9 |         2 | 100 |     100 |
+|  id | target_id |    N | percent |
+|----:|----------:|-----:|--------:|
+|   1 |         1 | 1068 |     100 |
+|   3 |         2 | 1118 |     100 |
+|   4 |         1 | 1142 |     100 |
+|   6 |         2 | 1133 |     100 |
+|   7 |         1 | 1178 |     100 |
+|   9 |         2 | 1107 |     100 |

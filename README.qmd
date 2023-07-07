@@ -350,7 +350,7 @@ For commonly used datasets, `assign_cases` should be run centrally and have its 
 
 ```{r}
 # create some fake data
-fake_micro = data.frame(rid = 1:1000)
+fake_micro = data.frame(rid = 1:10000)
 fake_micro$id = sample(source_poly$id, nrow(fake_micro), replace = T)
 
 # two split down the middle polygons
