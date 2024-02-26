@@ -51,7 +51,9 @@ ddiab_hra_cnt_denom = crosswalk(ddiab,'zipcode', est = 'denominator',
 
 ddiab_hra_cnt = merge(ddiab_hra_cnt, ddiab_hra_cnt_denom, all.x = T, by = 'target_id')
 ddiab_hra_cnt[, mean := est.x/est.y][, mean_se := se/est.y]
+
 # survey MI
+# https://r-survey.r-forge.r-project.org/survey/svymi.html
 mi_svy = svydesign(id = ~seqno, strata = ~x_ststr, weights = ~ finalwt1, data = mitools::imputationList(alts), nest = T)
 ddiab_mi_svy = with(mi_svy, svyby(~diab2,~hra_code,FUN = svymean, na.rm = T))
 ddiab_mi_svy_comp = mitools::MIcombine(ddiab_mi_svy)
