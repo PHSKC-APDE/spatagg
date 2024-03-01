@@ -57,7 +57,7 @@ ddiab_hra_cnt[, mean := est.x/est.y][, mean_se := se/est.y]
 mi_svy = svydesign(id = ~seqno, strata = ~x_ststr, weights = ~ finalwt1, data = mitools::imputationList(alts), nest = T)
 ddiab_mi_svy = with(mi_svy, svyby(~diab2,~hra_code,FUN = svymean, na.rm = T))
 ddiab_mi_svy_comp = mitools::MIcombine(ddiab_mi_svy)
-ddiab_mi_svy_comp = data.frame(ddiab_mi_svy_comp)
+# ddiab_mi_svy_comp = data.frame(ddiab_mi_svy_comp)
 
 ## Single run of assign cases
 bsur_gz = brfs_sur[zipcode %in% rads.data::spatial_zip_city_region_scc$zip]
@@ -86,11 +86,12 @@ combo = merge(combo, h2r, all.x = T, by = 'hra20_id')
 g = ggplot(combo, aes(y = version, x = mean, color = version)) +
   geom_errorbarh(aes(xmin = lower, xmax = upper), size = 1.2) +
   geom_point() + 
-  scale_color_brewer(type = 'qual', palette = 2) +
+  scale_color_brewer(name = "", type = 'qual', palette = 2) +
   # facet_wrap(~region_name, ncol = 1, scales = 'free_x') +
-  facet_wrap(~hra20_id) +
+  facet_wrap(~hra20_name) +
   theme_bw() + 
   xlab('Proportion') + ylab('') +
+  theme(legend.position = 'bottom') + 
   ggtitle('% of HRA with diabetes (diab2)', 'Varying approaches to convert from ZIP to HRA') 
 
 g
