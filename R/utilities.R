@@ -61,37 +61,25 @@ bbox_to_sf = function(bbox,id = 1){
 
 #' Try to eliminate internal/self overlaps
 #' @param x sf object
-#' @param snap distince in st_crs(x,parameters = T)$ud_unit units to allow for snapping
 #' @return An sf object that hopefully passes check_internal_consistency checks.
 #' @details Users should visually review the resulting object to make sure the hueristics used here weren't too goofy
 #' @importFrom sf st_make_valid st_buffer st_is_longlat st_intersection
 #' @importFrom lwgeom st_snap_to_grid
+#' @importFrom units set_units
 #' @export 
-reduce_overlaps = function(x, snap = .5){
+reduce_overlaps = function(x){
   
-  # start by making sure there are problems to fix
-  ic = check_internal_consistency(x, stop = F, return_probs = T)
-  if(!any(ic)) return(x)
+  # # start by making sure there are problems to fix
+  # ic = check_internal_consistency(x, stop = F, return_probs = T)
+  # if(!any(ic)) return(x)
   
   # try making it valid
   x = sf::st_make_valid(sf::st_buffer(x,0))
   ic = check_internal_consistency(x, stop = F, return_probs = T)
   if(!any(ic)) return(x)
   
-  # if its projected, try snapping to grid
-  prj = st_is_longlat(x)
-  prj = !(is.na(prj) | prj)
-  if(prj){
-    
-    # see if some snapping will work
-    x = lwgeom::st_snap_to_grid(x, snap)
-    x = sf::st_make_valid(x)
-    ic = check_internal_consistency(x, stop = F, return_probs = T)
-    if(!any(ic)) return(x)
-  }
-  
-  # internal intersections
   x = st_intersection(x)
+  # internal intersections
   x = subset(x, n.overlaps<=1)
   x$n.overlaps = NULL
   x$origins = NULL
@@ -100,13 +88,11 @@ reduce_overlaps = function(x, snap = .5){
   ic = check_internal_consistency(x, stop = F, return_probs = T)
   if(!any(ic)) return(x)
   
-  # slight negative buffer
-  x = st_buffer(x, -snap *.01)
-  x = st_buffer(x,snap *.001)
-  x = st_make_valid(x)
-  
-  ic = check_internal_consistency(x, stop = F, return_probs = T)
-  if(!any(ic)) return(x)
+  for(m in c(.00001, .0001, .001)){
+    x2 = st_buffer(x, units::set_units(-m, 'm'))
+    ic = check_internal_consistency(x2, stop = F, return_probs = T)
+    if(!any(ic)) return(x2)
+  }
   
   stop('Could not make `x` pass check_internal_consistency')
 

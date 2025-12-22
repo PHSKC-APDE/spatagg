@@ -8,7 +8,7 @@ library('ggplot2')
 
 options(survey.lonely.psu="adjust")
 brfs = readRDS("//dphcifs/APDE-CDIP/BRFSS/prog_all/2022/kc2022.rds")
-set.seed(1)
+set.seed(98104)
 
 # create some different variations for MI
 alts = lapply(1:10, function(i){
@@ -54,7 +54,7 @@ ddiab_hra_cnt[, mean := est.x/est.y][, mean_se := se/est.y]
 
 # survey MI
 # https://r-survey.r-forge.r-project.org/survey/svymi.html
-mi_svy = svydesign(id = ~seqno, strata = ~x_ststr, weights = ~ finalwt1, data = mitools::imputationList(alts), nest = T)
+mi_svy = svydesign(id = ~seqno, strata = ~x_ststr, weights = ~finalwt1, data = mitools::imputationList(alts), nest = T)
 ddiab_mi_svy = with(mi_svy, svyby(~diab2,~hra_code,FUN = svymean, na.rm = T))
 ddiab_mi_svy_comp = mitools::MIcombine(ddiab_mi_svy)
 # ddiab_mi_svy_comp = data.frame(ddiab_mi_svy_comp)
@@ -87,11 +87,12 @@ g = ggplot(combo, aes(y = version, x = mean, color = version)) +
   geom_errorbarh(aes(xmin = lower, xmax = upper), size = 1.2) +
   geom_point() + 
   scale_color_brewer(name = "", type = 'qual', palette = 2) +
-  # facet_wrap(~region_name, ncol = 1, scales = 'free_x') +
   facet_wrap(~hra20_name) +
   theme_bw() + 
   xlab('Proportion') + ylab('') +
-  theme(legend.position = 'bottom') + 
+  theme(legend.position = 'bottom', strip.text = element_text(size = 6)) + 
   ggtitle('% of HRA with diabetes (diab2)', 'Varying approaches to convert from ZIP to HRA') 
 
 g
+
+ggsave('C:/Users/DCASEY.KC/OneDrive - King County/Documents/assign_cases_compare.png', height = 11, width = 22, units = 'in', dpi = 200)
