@@ -1,34 +1,20 @@
-Evaluating Spatagg Methods
-================
+# Evaluating Spatagg Methods
 
-- <a href="#intro" id="toc-intro">Intro</a>
-- <a href="#set-up" id="toc-set-up">Set Up</a>
-  - <a href="#boundary" id="toc-boundary">Boundary</a>
-  - <a href="#source-and-target" id="toc-source-and-target">Source and
-    target</a>
-  - <a href="#population-and-variables"
-    id="toc-population-and-variables">Population and variables</a>
-  - <a href="#aggregate-to-source" id="toc-aggregate-to-source">Aggregate to
-    source</a>
-  - <a href="#aggregate-to-target" id="toc-aggregate-to-target">Aggregate to
-    target</a>
-- <a href="#compute-and-apply-crosswalks"
-  id="toc-compute-and-apply-crosswalks">Compute and apply crosswalks</a>
-  - <a href="#geographic-crosswalks"
-    id="toc-geographic-crosswalks">Geographic Crosswalks</a>
-  - <a href="#population-based-crosswalk"
-    id="toc-population-based-crosswalk">Population based crosswalk</a>
-  - <a href="#approximate-parcel-population"
-    id="toc-approximate-parcel-population">Approximate parcel population</a>
-  - <a href="#compare-results" id="toc-compare-results">Compare results</a>
-  - <a href="#sensitivity-testing-the-parcel-approximation-approach"
-    id="toc-sensitivity-testing-the-parcel-approximation-approach">Sensitivity
-    testing the parcel approximation approach</a>
-- <a href="#a-real-data-example" id="toc-a-real-data-example">A ‘real’
-  data example</a>
-  - <a href="#the-data" id="toc-the-data">The data</a>
-  - <a href="#the-truth" id="toc-the-truth">The truth</a>
-  - <a href="#crosswalks" id="toc-crosswalks">Crosswalks</a>
+
+- [Intro](#intro)
+- [Set Up](#set-up)
+  - [Boundary](#boundary)
+  - [Source and target](#source-and-target)
+  - [Population and variables](#population-and-variables)
+  - [Aggregate to source](#aggregate-to-source)
+  - [Aggregate to target](#aggregate-to-target)
+- [Compute and apply crosswalks](#compute-and-apply-crosswalks)
+  - [Geographic Crosswalks](#geographic-crosswalks)
+  - [Population based crosswalk](#population-based-crosswalk)
+  - [Approximate parcel population](#approximate-parcel-population)
+  - [Compare results](#compare-results)
+  - [Sensitivity testing the parcel approximation
+    approach](#sensitivity-testing-the-parcel-approximation-approach)
 
 ## Intro
 
@@ -417,145 +403,3 @@ g
 ![](spatagg_validate_files/figure-commonmark/parcel-approx-2.png)
 
 The purple line is the estimate using the “geographic overlap” method.
-
-## A ‘real’ data example
-
-Our real data examples will be examining the percent of deaths between
-2018 and 2020 that were due to diabetes and the count of deaths due all
-drugs during that period. The source geography will be tracts and the
-target geography will be HRAs. Records that are not geocoded within King
-County are omitted from the analysis.
-
-### The data
-
-In the extract, there are 40,946 deaths from all causes, 1,221 from
-diabetes and 1,204 from all drugs.
-
-![](spatagg_validate_files/figure-commonmark/unnamed-chunk-12-1.png)
-
-### The truth
-
-``` r
-# Tract level
-tract = st_transform(tract, st_crs(deaths))
-dtract = st_join(deaths, tract[,'GEOID'])
-dtract = dtract %>% 
-  st_drop_geometry() %>% 
-  group_by(GEOID) %>%
-  summarize(diabetes = sum(diabetes,na.rm =T),
-            drugs = sum(all_drugs, na.rm = T),
-            all = n())
-
-dtract = dtract %>% mutate(pdiabetes := diabetes/all)
-
-# HRA
-
-dhra = st_join(deaths, hra[,'id']) %>%
-  st_drop_geometry() %>%
-  group_by(id) %>%
-   summarize(diabetes = sum(diabetes,na.rm =T),
-            drugs = sum(all_drugs, na.rm = T),
-            all = n())%>% 
-  mutate(pdiabetes := diabetes/all) %>%
-  filter(!is.na(id))
-```
-
-### Crosswalks
-
-``` r
-geog = create_xwalk(tract, hra, 'GEOID', 'id', method = 'fractional overlap')
-ppop = create_xwalk(tract, hra, 'GEOID', 'id', method = 'point pop', point_pop = kcparcelpop::parcel_pop)
-ppop = ppop %>% filter(isect_amount >0)
-
-# go from tract to hra
-t2hra = function(dtract, xw,  type = 'geog'){
-  
-  r = lapply(c('diabetes', 'drugs', 'all', 'pdiabetes'), function(x){
-    
-    d = crosswalk(dtract, 'GEOID', est = x, 
-              proportion = x == 'pdiabetes', 
-              xwalk_df = xw)
-    
-    d$var = x
-    
-    d
-    
-  })
-  
-  r = rbindlist(r)
-  r = dcast(r, target_id ~ var, value.var = 'est')
-  r[, 'type' := type]
-  
-  r
-}
-
-rgeog = t2hra(dtract, geog, 'geog')
-rppop = t2hra(dtract, ppop, 'ppop')
-
-# compute rmse for stuff
-compare_to_truth = function(obs, pred){
-  pred = copy(pred)
-  setnames(pred, 
-           c('diabetes', 'drugs', 'all', 'pdiabetes'),
-           c('e_diabetes', 'e_drugs', 'e_all', 'e_pdiabetes')
-           )
-  
-  r = merge(obs, pred, all.x = T, by.x = 'id', by.y = 'target_id')
-  setDT(r)
-  
-  # convert two counts, and then compute
-  r[, e_pdiabetes2 := e_diabetes/e_all]
-  
-  # compute RMSEs
-  e = r[, .(all = rmse(all, e_all),
-        diabetes = rmse(diabetes, e_diabetes),
-        drugs = rmse(drugs, e_drugs),
-        pdiabetes = rmse(pdiabetes, e_pdiabetes),
-        pdiabetes2 = rmse(pdiabetes, e_pdiabetes2)), type]
-  e
-  
-}
-
-cgeog = compare_to_truth(dhra, rgeog)
-cppop = compare_to_truth(dhra, rppop)
-
-knitr::kable(rbind(cgeog, cppop), label = 'RMSE by variable and approach')
-```
-
-| type |    all | diabetes | drugs | pdiabetes | pdiabetes2 |
-|:-----|-------:|---------:|------:|----------:|-----------:|
-| geog | 86.592 |    3.051 | 2.148 |     0.008 |      0.003 |
-| ppop | 35.411 |    1.795 | 1.313 |     0.004 |      0.002 |
-
-As the table shows, parcel population has lower overall error across all
-indicators.
-
-``` r
-dhra = merge(dhra, rgeog[, .(id = target_id, geog_all = all)], all.x = T, by = 'id')
-
-dhra = merge(dhra, rppop[, .(id = target_id, ppop_all = all)], all.x = T, by = 'id')
-
-setDT(dhra)
-ghra = melt(dhra[, .(id, all, geog_all, ppop_all)], id.vars = c('id', 'all'))
-ghra[, dif := all - value]
-ghra[, variable := factor(variable, c('geog_all', 'ppop_all'), c('Geographic', 'Parcel Pop'))]
-ghra = merge(ghra, hra[, 'id'], by = 'id')
-ghra = st_as_sf(ghra)
-
-ggplot(ghra, aes(fill = dif)) + 
-  geom_sf() + 
-  facet_wrap(~variable) +
-  scale_fill_viridis_c() +
-  theme_bw() +
-  ggtitle('Obs - Pred by crosswalk type', 'All deaths') +
-  theme(axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        panel.grid = element_blank())
-```
-
-![](spatagg_validate_files/figure-commonmark/unnamed-chunk-15-1.png)
-
-This graph shows the difference in the observed number of deaths
-relative to the “predicted” number of deaths created via the two
-crosswalking approaches. In general, the parcel/point population
-approach has less “error” than the geographic approach.
