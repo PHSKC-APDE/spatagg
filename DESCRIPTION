@@ -1,6 +1,6 @@
 Package: spatagg
 Title: Aggregation between non-nesting geographies
-Version: 1.0.1.0
+Version: 1.0.2.0
 Authors@R: 
     person("Daniel", "Casey", , "dcasey@kingcounty.gov", role = c("aut", "cre"))
 Description: Provides routines for the aggregation of estimates between sets of non-nesting geographies.
@@ -17,5 +17,4 @@ Depends:
 LazyData: true
 Remotes: github::PHSKC-APDE/kcparcelpop
 Suggests:
-    tinytest,
-    kcparcelpop (>= 0.0.0.9004)
+    tinytest

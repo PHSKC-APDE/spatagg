@@ -13,7 +13,7 @@
 #' 
 create_xwalk = function(source, target, source_id = 'GEOID', target_id = 'GEOID',
                         method = 'fractional overlap', 
-                        point_pop = if(requireNamespace('kcparcelpop')) kcparcelpop::parcel_pop else NULL,
+                        point_pop = NULL,
                         min_overlap = .75, ...){
   # Argument checking
   stopifnot(inherits(source, 'sf'))
